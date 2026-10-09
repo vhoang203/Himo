@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đặt lại mật khẩu · HIMO</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="index.html"><span class="mark"><i></i></span>HIMO</a>
+  <button class="lang" id="langBtn" type="button">English</button>
+</header>
+<nav data-lang="vi"><a href="index.html">Hỗ trợ</a><a href="dieu-khoan.html">Điều khoản</a><a href="chinh-sach.html">Quyền riêng tư</a><a href="xoa-tai-khoan.html">Xoá tài khoản</a></nav><nav data-lang="en"><a href="index.html">Support</a><a href="dieu-khoan.html">Terms</a><a href="chinh-sach.html">Privacy</a><a href="xoa-tai-khoan.html">Delete account</a></nav>
+
+<article data-lang="vi">
+  <h1>Đặt lại mật khẩu</h1>
+  <p class="intro">Nhập mật khẩu mới cho tài khoản HIMO của bạn. Xong thì mở app và đăng nhập lại.</p>
+</article>
+<article data-lang="en">
+  <h1>Reset your password</h1>
+  <p class="intro">Enter a new password for your HIMO account. Then open the app and sign in again.</p>
+</article>
+<div class="card">
+  <form id="f" autocomplete="off">
+    <label for="p1"><span data-lang="vi">Mật khẩu mới</span><span data-lang="en">New password</span></label>
+    <input id="p1" type="password" minlength="6" required autocomplete="new-password">
+    <label for="p2"><span data-lang="vi">Nhập lại</span><span data-lang="en">Repeat</span></label>
+    <input id="p2" type="password" minlength="6" required autocomplete="new-password">
+    <button class="primary" id="btn" type="submit" disabled><span data-lang="vi">Lưu mật khẩu mới</span><span data-lang="en">Save new password</span></button>
+  </form>
+  <div id="msg" class="msg" hidden></div>
+</div>
+<footer><span data-lang="vi">© HIMO · Liên hệ: <a href="mailto:viethoang.ust@gmail.com">viethoang.ust@gmail.com</a></span><span data-lang="en">© HIMO · Contact: <a href="mailto:viethoang.ust@gmail.com">viethoang.ust@gmail.com</a></span></footer>
+</div>
+
+<script>
+(function(){
+  var saved = null; try { saved = localStorage.getItem('himo.lang'); } catch (e) {}
+  var pick = saved || (/^vi/i.test(navigator.language) ? 'vi' : 'en');
+  function apply(l){
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-lang]').forEach(function(el){ el.hidden = el.getAttribute('data-lang') !== l; });
+    var b = document.getElementById('langBtn'); if (b) b.textContent = l === 'vi' ? 'English' : 'Tiếng Việt';
+    try { localStorage.setItem('himo.lang', l); } catch (e) {}
+    window.__lang = l;
+  }
+  apply(pick);
+  var b = document.getElementById('langBtn');
+  if (b) b.addEventListener('click', function(){ apply(window.__lang === 'vi' ? 'en' : 'vi'); });
+})();
+</script>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+(function(){
+  var T = {
+    vi: { wait: 'Đang kiểm tra liên kết…', bad: 'Liên kết đã hết hạn hoặc không hợp lệ. Mở app HIMO, bấm "Quên mật khẩu?" để nhận liên kết mới.', mismatch: 'Hai mật khẩu chưa giống nhau.', ok: 'Đã đổi mật khẩu. Mở app HIMO và đăng nhập bằng mật khẩu mới.', cfg: 'Trang chưa được cấu hình (thiếu config.js).', ready: 'Liên kết hợp lệ — nhập mật khẩu mới.', lib: 'Không tải được thư viện. Kiểm tra mạng rồi tải lại trang.', fail: 'Không đổi được mật khẩu: ' },
+    en: { wait: 'Checking the link…', bad: 'This link has expired or is invalid. Open HIMO, tap "Forgot password?" to get a new one.', mismatch: 'The two passwords do not match.', ok: 'Password changed. Open HIMO and sign in with your new password.', cfg: 'This page is not configured yet (config.js missing).', ready: 'Link is valid — enter your new password.', lib: 'Could not load a required library. Check your connection and reload.', fail: 'Could not change the password: ' }
+  };
+  var t = function(k){ return T[window.__lang || 'vi'][k]; };
+  var msg = document.getElementById('msg'), btn = document.getElementById('btn');
+  function say(k, err, extra){ msg.hidden = false; msg.textContent = t(k) + (extra || ''); msg.className = 'msg' + (err ? ' err' : ''); }
+  if (!window.HIMO_CONFIG || !HIMO_CONFIG.SUPABASE_URL || /xxxx/.test(HIMO_CONFIG.SUPABASE_URL)) { say('cfg', true); return; }
+  // Supabase gửi liên kết theo MỘT trong hai dạng:
+  //   (a) mẫu email mặc định  -> quay về đây với  #access_token=...&type=recovery
+  //   (b) mẫu email tự viết   -> quay về đây với  ?token_hash=...&type=recovery
+  // Dạng (b) chắc chắn hơn: nó không phụ thuộc vào danh sách Redirect URLs,
+  // nên vẫn chạy cả khi cấu hình Supabase chưa hoàn hảo.
+  var hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var qs = new URLSearchParams(location.search);
+  var loi = qs.get('error_description') || hash.get('error_description') || qs.get('error') || hash.get('error');
+  var tokenHash = qs.get('token_hash') || hash.get('token_hash');
+  if (loi) { say('bad', true); return; }
+  if (!tokenHash && !hash.get('access_token')) { say('bad', true); return; }
+  say('wait');
+  var ready = false;
+  var timer = setTimeout(function(){ if (!ready) say('bad', true); }, 8000);
+  function moKhoa(){ ready = true; clearTimeout(timer); btn.disabled = false; say('ready');
+    // Bỏ mã khỏi thanh địa chỉ ngay: không để nó nằm trong lịch sử duyệt web.
+    history.replaceState(null, '', location.pathname); }
+  var client;
+  try {
+    client = supabase.createClient(HIMO_CONFIG.SUPABASE_URL, HIMO_CONFIG.SUPABASE_ANON_KEY, { auth: { detectSessionInUrl: !tokenHash, flowType: 'implicit', persistSession: false } });
+  } catch (e) { clearTimeout(timer); say('lib', true); return; }
+  if (tokenHash) {
+    client.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(function(r){
+      if (r.error || !(r.data && r.data.session)) { clearTimeout(timer); say('bad', true); return; }
+      moKhoa();
+    });
+  } else {
+    client.auth.onAuthStateChange(function(event, session){
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) moKhoa();
+    });
+    // Không chỉ trông vào sự kiện: hỏi thẳng một lần nữa sau khi thư viện khởi động xong,
+    // phòng trường hợp sự kiện bắn ra trước lúc mình kịp lắng nghe.
+    client.auth.getSession().then(function(r){ if (!ready && r.data && r.data.session) moKhoa(); });
+  }
+  document.getElementById('f').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var p1 = document.getElementById('p1').value, p2 = document.getElementById('p2').value;
+    if (p1 !== p2) { say('mismatch', true); return; }
+    btn.disabled = true;
+    var r = await client.auth.updateUser({ password: p1 });
+    if (r.error) { say('fail', true, r.error.message); btn.disabled = false; return; }
+    say('ok'); document.getElementById('f').hidden = true;
+    history.replaceState(null, '', location.pathname);
+  });
+})();
+</script>
+</body>
+</html>

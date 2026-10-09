@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email đã xác nhận · HIMO</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="index.html"><span class="mark"><i></i></span>HIMO</a>
+  <button class="lang" id="langBtn" type="button">English</button>
+</header>
+<nav data-lang="vi"><a href="index.html">Hỗ trợ</a><a href="dieu-khoan.html">Điều khoản</a><a href="chinh-sach.html">Quyền riêng tư</a><a href="xoa-tai-khoan.html">Xoá tài khoản</a></nav><nav data-lang="en"><a href="index.html">Support</a><a href="dieu-khoan.html">Terms</a><a href="chinh-sach.html">Privacy</a><a href="xoa-tai-khoan.html">Delete account</a></nav>
+
+<article data-lang="vi"><h1>Email đã xác nhận</h1><p class="intro">Cảm ơn bạn. Mở app HIMO trên điện thoại và đăng nhập bằng email vừa xác nhận.</p></article>
+<article data-lang="en"><h1>Email confirmed</h1><p class="intro">Thank you. Open HIMO on your phone and sign in with the email you just confirmed.</p></article>
+<div id="msg" class="msg" hidden></div>
+<footer><span data-lang="vi">© HIMO · Liên hệ: <a href="mailto:viethoang.ust@gmail.com">viethoang.ust@gmail.com</a></span><span data-lang="en">© HIMO · Contact: <a href="mailto:viethoang.ust@gmail.com">viethoang.ust@gmail.com</a></span></footer>
+</div>
+
+<script>
+(function(){
+  var saved = null; try { saved = localStorage.getItem('himo.lang'); } catch (e) {}
+  var pick = saved || (/^vi/i.test(navigator.language) ? 'vi' : 'en');
+  function apply(l){
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-lang]').forEach(function(el){ el.hidden = el.getAttribute('data-lang') !== l; });
+    var b = document.getElementById('langBtn'); if (b) b.textContent = l === 'vi' ? 'English' : 'Tiếng Việt';
+    try { localStorage.setItem('himo.lang', l); } catch (e) {}
+    window.__lang = l;
+  }
+  apply(pick);
+  var b = document.getElementById('langBtn');
+  if (b) b.addEventListener('click', function(){ apply(window.__lang === 'vi' ? 'en' : 'vi'); });
+})();
+</script>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+(function(){
+  var qs = new URLSearchParams(location.search), hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var th = qs.get('token_hash') || hash.get('token_hash');
+  var loai = qs.get('type') || hash.get('type') || 'email';
+  var loi = qs.get('error_description') || hash.get('error_description') || qs.get('error') || hash.get('error');
+  var msg = document.getElementById('msg');
+  var T = {
+    vi: { wait: 'Đang xác nhận…', bad: 'Liên kết đã hết hạn hoặc đã dùng rồi. Mở app HIMO và bấm gửi lại email xác nhận.', ok: 'Xong! Mở app HIMO và đăng nhập.' },
+    en: { wait: 'Confirming…', bad: 'This link has expired or was already used. Open HIMO and ask for a new confirmation email.', ok: 'Done. Open HIMO and sign in.' }
+  };
+  function say(k, err){ msg.hidden = false; msg.textContent = T[window.__lang || 'vi'][k]; msg.className = 'msg' + (err ? ' err' : ''); }
+  if (loi) { say('bad', true); history.replaceState(null, '', location.pathname); return; }
+  if (!th) { history.replaceState(null, '', location.pathname); return; }
+  if (!window.HIMO_CONFIG || !window.supabase) return;
+  say('wait');
+  var c = supabase.createClient(HIMO_CONFIG.SUPABASE_URL, HIMO_CONFIG.SUPABASE_ANON_KEY, { auth: { detectSessionInUrl: false, persistSession: false } });
+  c.auth.verifyOtp({ type: loai === 'signup' ? 'signup' : 'email', token_hash: th }).then(function(r){
+    say(r.error ? 'bad' : 'ok', !!r.error);
+    history.replaceState(null, '', location.pathname);
+  });
+})();
+</script>
+</body>
+</html>
