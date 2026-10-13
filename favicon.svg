@@ -1,7 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C8380F"/><stop offset=".55" stop-color="#E4561A"/><stop offset="1" stop-color="#F58A3A"/></linearGradient></defs>
-<rect width="34" height="34" rx="9" fill="url(#g)"/>
-<rect x="9" y="9" width="6" height="17" rx="3" fill="#FFF1E2"/>
-<rect x="19" y="9" width="6" height="17" rx="3" fill="#FFF1E2"/>
-<rect x="13" y="16" width="8" height="4" rx="2" fill="#FFD9B5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<title>HIMO icon</title>
+<rect x="0" y="0" width="1024" height="1024" rx="204.8" fill="#E5672F"/>
+<path fill="#FFF4EA" d="M 215 346 A 141 141 0 0 1 356 205 A 39 39 0 0 1 395 244 L 395 436.5 A 300 300 0 0 1 804 716 L 804 787 A 32 32 0 0 1 772 819 L 656 819 A 32 32 0 0 1 624 787 L 624 690 A 114.5 114.5 0 0 0 395 690 L 395 787 A 32 32 0 0 1 363 819 L 247 819 A 32 32 0 0 1 215 787 Z M 619 300 A 95 95 0 1 1 809 300 A 95 95 0 1 1 619 300 Z"/>
 </svg>

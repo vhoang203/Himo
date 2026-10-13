@@ -1,0 +1,27 @@
+/* Dạng SỐ ÍT tiếng Anh cho những nhãn đứng cạnh một con số.
+   Chỉ dùng khi n = 1; các trường hợp khác lấy từ HIMO_EN. */
+window.HIMO_EN1 = {
+  "bài đã duyệt": "approved post",
+  "báo cáo": "report",
+  "báo cáo sắp quá 24 giờ": "report about to pass 24 hours",
+  "báo cáo đang chờ": "report waiting",
+  "báo cáo đã quá 24 giờ": "report past 24 hours",
+  "hoạt động hôm nay": "active today",
+  "máy đã bật thông báo": "device with notifications on",
+  "mục": "item",
+  "người": "person",
+  "người dùng": "user",
+  "thông báo trong 24 giờ": "notification in 24 hours",
+  "tin nhắn 24 giờ qua": "message in the last 24 hours",
+  "tổng tài khoản": "account in total",
+  "đăng ký 30 ngày": "signup in 30 days",
+  "đăng ký 7 ngày": "signup in 7 days",
+  "đăng ký 7 ngày qua": "signup in the last 7 days",
+  "đăng ký hôm nay": "signup today",
+  "ảnh album": "album photo",
+  "ảnh bài đăng": "post photo",
+  "ảnh chờ duyệt": "photo awaiting approval",
+  "ảnh trong chat": "photo in chat",
+  "ảnh đang chờ duyệt": "photo awaiting approval",
+  "ảnh đại diện": "profile photo",
+};
