@@ -632,5 +632,500 @@
     veBieuDo(main);
   }
 
-  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat };
+  // ================================================================ F. SỰ KIỆN & TIN THOẠI (151)
+  /** admin_pt_su_kien: sự kiện (133–141), nhóm chat sự kiện, tin thoại (137), nhóm ẩn danh sách thành viên (142). */
+  const TEN_LOAI_SK = { pride: 'Pride', tiec: 'Tiệc', the_thao: 'Thể thao', hoi_thao: 'Hội thảo', tinh_nguyen: 'Tình nguyện', ca_phe: 'Cà phê', khac: 'Khác' };
+  function suKien(main, o2, ctx) {
+    C = ctx;
+    const sk = o2.su_kien || {}; const tt = o2.tin_thoai || {};
+    const ngay = o2.ngay || 30;
+    const sod = (v) => (v == null ? '—' : so(v));
+    const thoiLuong = (s) => {
+      if (s == null) return '—';
+      const n = Number(s) || 0;
+      return n >= 3600 ? `${so(Math.round(n / 360) / 10)} ${C.lang() === 'en' ? 'h' : 'giờ'}` : n >= 60 ? `${so(Math.round(n / 6) / 10)} ${t('phút')}` : `${so(n)} ${t('giây')}`;
+    };
+    const loai = Object.entries(sk.theo_loai || {}).map(([k, v]) => ({ ten: t(TEN_LOAI_SK[k] || k), n: Number(v) || 0 })).sort((a, b) => b.n - a.n);
+    const nuoc = (sk.theo_nuoc || []).map((x) => ({ ten: `${C.tenNuoc ? C.tenNuoc(x.quoc_gia) : x.quoc_gia} (${x.quoc_gia})`, n: Number(x.n) || 0 }));
+    main.innerHTML = `<div class="stack" style="padding-top:14px">
+      ${dauTrang(t('Sự kiện & tin thoại'), `${t('Tổng hợp từ máy chủ — không có tên hay nội dung nào.')} ${t('Kỳ')} ${so(ngay)} ${t('ngày')}.`, [7, 30, 90], ngay)}
+      ${the(t('Sự kiện tạo trong kỳ'), '', `<div class="tiles pt-tiles">
+        ${o(t('Tạo mới'), sod(sk.tao), '', `${sod(sk.tai_cho)} ${t('tại chỗ')} · ${sod(sk.truc_tuyen)} ${t('trực tuyến')}`)}
+        ${o(t('Đã huỷ'), sod(sk.huy), '', '')}
+        ${o(t('Số người tổ chức'), sod(sk.nguoi_to_chuc), '', '')}
+        ${o(t('Lần sửa'), sod(sk.sua), '', sk.sua == null ? t('máy chủ chưa có 140') : '')}
+        ${o(t('Đăng ký "Sẽ đi"'), sod(sk.dang_ky_di), '', `${sod(sk.dang_ky_co_the)} ${t('"Có thể đi"')}`)}
+        ${o(t('Báo cáo'), sod(sk.bao_cao), '', t('đang mở + đã xử lý'))}
+      </div>`)}
+      <div class="pt-grid2">
+        ${the(t('Lúc này'), t('con số hiện tại, không theo kỳ'), `<div class="tiles pt-tiles sm">
+          ${o(t('Chờ duyệt'), sod(sk.cho_duyet), '', '')}${o(t('Bị ẩn'), sod(sk.bi_an), '', '')}${o(t('Sắp diễn ra'), sod(sk.sap_toi), '', '')}</div>
+          <div class="row" style="margin-top:8px"><a class="btn sm" href="#noidung/sukien">${t('Mở danh sách sự kiện')} →</a></div>`)}
+        ${the(t('Nhóm chat của sự kiện'), t('sự kiện tạo trong kỳ'), `<div class="tiles pt-tiles sm">
+          ${o(t('Có nhóm chat'), sod(sk.co_nhom_chat), '', '')}${o(t('Mở cho mọi người chat'), sod(sk.nhom_mo_cho_moi_nguoi), '', t('còn lại là kênh thông báo'))}${o(t('Vào nhóm qua nút sự kiện'), sod(sk.vao_nhom_qua_su_kien), '', '')}</div>`)}
+      </div>
+      <div class="pt-grid2">
+        ${the(t('Loại sự kiện'), t('tạo trong kỳ'), loai.length ? thanh(loai, { tong: sk.tao, rong: 130 }) : `<div class="hint">${t('Chưa có sự kiện nào trong kỳ.')}</div>`)}
+        ${the(t('Nước có nhiều sự kiện nhất'), t('10 nước đầu, tạo trong kỳ'), nuoc.length ? thanh(nuoc, { tong: sk.tao, rong: 170 }) : `<div class="hint">${t('Chưa có sự kiện nào trong kỳ.')}</div>`)}
+      </div>
+      ${the(t('Tin thoại'), t('gửi trong kỳ'), `<div class="tiles pt-tiles">
+        ${o(t('Tin thoại'), sod(tt.so_tin), '', `${sod(tt.trong_nhom)} ${t('trong nhóm')}`)}
+        ${o(t('Số người gửi'), sod(tt.nguoi_gui), '', '')}
+        ${o(t('Tổng thời lượng'), thoiLuong(tt.tong_giay), '', '')}
+        ${o(t('Trung bình mỗi tin'), tt.tb_giay == null ? '—' : `${so(tt.tb_giay)} ${t('giây')}`, '', '')}
+        ${o(t('Bị báo cáo'), sod(tt.bao_cao), '', t('báo cáo tin nhắn có tin thoại'))}
+      </div>`)}
+      ${the(t('Nhóm ẩn danh sách thành viên'), t('con số hiện tại, không theo kỳ'), `<div class="tiles pt-tiles sm">${o(t('Số nhóm'), sod(o2.nhom_an_danh_sach), '', o2.nhom_an_danh_sach == null ? t('máy chủ chưa có 142') : '')}</div>`)}
+    </div>`;
+    veBieuDo(main);
+  }
+
+  // ---------------------------------------------------------------- CHÂN DUNG NGƯỜI DÙNG (167)
+  // Máy chủ (admin_pt_chan_dung) trả số TỔNG HỢP theo từng chiều: [{k, n}] hoặc {k, it: true} khi nhóm dưới 5 người (không kèm số).
+  // Tệp này chỉ vẽ + nối bộ lọc; không có con số nào được gõ sẵn ở đây — không có dữ liệu thì hiện "chưa có", không bịa.
+  const cdO = o;                                   // ô số liệu dùng chung (trong chanDung, `o` là dữ liệu)
+  const CD_MAU = ['var(--pt-s1)', 'var(--pt-s2)', 'var(--pt-s3)', 'var(--pt-sneg)'];
+  const CD_THU_TU = {
+    tuoi: ['18-24', '25-34', '35-44', '45-54', '55+', '?'],
+    chieu_cao: ['<165', '165-169', '170-174', '175-179', '180-184', '185+', '?'],
+    hoat_dong: ['24h', '7d', '30d', 'ngu'],
+    plus: ['co', 'khong'], xac_minh: ['co', 'khong'],
+  };
+  const CD_GIA_TRI = {   // thứ tự các ô chọn trong bộ lọc (đúng các giá trị hồ sơ nhận — 002)
+    tuoi: ['18-24', '25-34', '35-44', '45-54', '55+'],
+    vai_tro: ['top', 'vers_top', 'vers', 'vers_bottom', 'bottom', 'side', 'ask', '?'],
+    dang_nguoi: ['slim', 'average', 'athletic', 'muscular', 'chubby', 'large', '?'],
+    tinh_trang: ['single', 'dating', 'partnered', 'married', 'open', 'complicated', '?'],
+    dang_tim: ['chat', 'friends', 'dates', 'relationship', 'now', 'networking'],
+  };
+  const CD_LOC_MANG = ['quoc_gia', 'tuoi', 'vai_tro', 'dang_nguoi', 'tinh_trang', 'dang_tim', 'ngon_ngu'];
+  const CD_LOC_DON = ['hoat_dong', 'dang_ky', 'plus', 'xac_minh'];
+  const CD_CHEO = ['quoc_gia', 'tuoi', 'vai_tro', 'dang_nguoi', 'tinh_trang', 'plus', 'xac_minh', 'hoat_dong'];
+
+  const cdTenChieu = (c) => ({
+    quoc_gia: t('Quốc gia'), tuoi: t('Nhóm tuổi'), vai_tro: t('Vai trò'), dang_nguoi: t('Dáng người'), tinh_trang: t('Tình trạng quan hệ'),
+    dang_tim: t('Đang tìm'), ngon_ngu: t('Ngôn ngữ nói được'), ngon_ngu_app: t('Ngôn ngữ nhận thông báo'), chieu_cao: t('Chiều cao'), mbti: 'MBTI',
+    plus: 'HIMO Plus', xac_minh: t('Xác minh'), hoat_dong: t('Mức hoạt động'), thang_dang_ky: t('Tháng đăng ký'),
+  }[c] || c);
+  function cdTenNgonNgu(k) {
+    try {
+      const s = new Intl.DisplayNames([C.locale()], { type: 'language' }).of(k);
+      return s && s !== k ? s.charAt(0).toUpperCase() + s.slice(1) : k;
+    } catch (e) { return k; }
+  }
+  function cdNhan(chieu, k) {
+    if (k === '?') return chieu === 'quoc_gia' ? t('Chưa rõ nước') : chieu === 'tuoi' ? t('Chưa có ngày sinh') : chieu === 'ngon_ngu_app' ? t('Chưa bật thông báo') : t('Chưa điền');
+    switch (chieu) {
+      case 'quoc_gia': return C.tenNuoc(k) || k;
+      case 'tuoi': return k.replace('-', '–');
+      case 'chieu_cao': return `${k.replace('-', '–')} cm`;
+      case 'vai_tro': return ({ top: 'Top', vers_top: 'Vers top', vers: 'Vers', vers_bottom: 'Vers bottom', bottom: 'Bottom', side: 'Side', ask: t('Hỏi tôi') })[k] || k;
+      case 'dang_nguoi': return ({ slim: t('Mảnh'), average: t('Cân đối'), athletic: t('Thể thao'), muscular: t('Cơ bắp'), chubby: t('Mũm mĩm'), large: t('To con') })[k] || k;
+      case 'tinh_trang': return ({ single: t('Độc thân'), dating: t('Đang hẹn hò'), partnered: t('Đã có người yêu'), married: t('Đã kết hôn'), open: t('Quan hệ mở'), complicated: t('Phức tạp') })[k] || k;
+      case 'dang_tim': return ({ chat: t('Trò chuyện'), friends: t('Bạn bè'), dates: t('Hẹn hò'), relationship: t('Lâu dài'), now: t('Gặp ngay'), networking: t('Mở rộng quan hệ') })[k] || k;
+      case 'ngon_ngu': case 'ngon_ngu_app': return cdTenNgonNgu(k);
+      case 'plus': return k === 'co' ? t('Có Plus') : t('Không có Plus');
+      case 'xac_minh': return k === 'co' ? t('Đã xác minh') : t('Chưa xác minh');
+      case 'hoat_dong': return ({ '24h': t('Trong 24 giờ qua'), '7d': t('2–7 ngày trước'), '30d': t('8–30 ngày trước'), ngu: t('Không hoạt động trên 30 ngày') })[k] || k;
+      case 'thang_dang_ky': { const m = /^(\d{4})-(\d{2})$/.exec(k); return m ? `${m[2]}/${m[1]}` : k; }
+      default: return k;
+    }
+  }
+  /** Các dòng của một chiều theo thứ tự hiển thị: [{k, n (null khi bị che), it}]. */
+  function cdDong(o, chieu) {
+    const ds = ((o.chieu || {})[chieu] || []).map((x) => ({ k: String(x.k), n: x.it ? null : Number(x.n) || 0, it: !!x.it }));
+    const tt = CD_THU_TU[chieu];
+    if (tt) return ds.sort((a, b) => (tt.indexOf(a.k) < 0 ? 99 : tt.indexOf(a.k)) - (tt.indexOf(b.k) < 0 ? 99 : tt.indexOf(b.k)));
+    if (chieu === 'thang_dang_ky') return ds.sort((a, b) => (a.k < b.k ? -1 : 1)).slice(-12);
+    return ds;                                   // máy chủ đã xếp theo số người giảm dần; nhóm bị che nằm cuối
+  }
+  /** Số người của một giá trị: {n} | {it: true} (dưới 5 người) | {n: 0} (không có ai). */
+  function cdLay(o, chieu, k) {
+    const x = ((o.chieu || {})[chieu] || []).find((y) => String(y.k) === k);
+    return !x ? { n: 0 } : x.it ? { it: true } : { n: Number(x.n) || 0 };
+  }
+  const cdPct = (n, tong) => (tong ? Math.round((n / tong) * 1000) / 10 : 0);
+
+  /** Danh sách thanh ngang của một chiều. loc = khoá bộ lọc mảng (bấm vào dòng để lọc) hoặc null. */
+  function cdThanh(o, chieu, { loc = null, chon = [], toiDa = 8, mau = 'var(--primary)' } = {}) {
+    const ds = cdDong(o, chieu);
+    if (!ds.length) return `<div class="hint">${t('Chưa có dữ liệu.')}</div>`;
+    const max = Math.max(1, ...ds.map((d) => d.n || 0));
+    const dong = (d) => {
+      const ten = cdNhan(chieu, d.k);
+      if (d.it) {
+        return `<div class="cd-row it" tabindex="0" data-tip="${esc(`${ten}\n${t('Dưới 5 người — không hiện số để không lộ danh tính')}`)}"><span class="cd-l">${esc(ten)}</span><span class="cd-b"></span><span class="cd-p">&lt; 5</span><span class="cd-n"></span></div>`;
+      }
+      const p = cdPct(d.n, o.tong);
+      const tip = `${ten}\n${so(d.n)} ${t('người')} · ${so(p)}%${loc ? '\n' + t('Bấm để lọc theo nhóm này') : ''}`;
+      const than = `<span class="cd-l">${esc(ten)}</span><span class="cd-b"><i style="width:${Math.max(1.5, Math.round((d.n / max) * 1000) / 10)}%;background:${mau}"></i></span><span class="cd-p">${so(p)}%</span><span class="cd-n">${so(d.n)}</span>`;
+      return loc
+        ? `<button type="button" class="cd-row" data-cd-dong="${loc}" data-k="${esc(d.k)}" aria-pressed="${chon.includes(d.k)}" data-tip="${esc(tip)}">${than}</button>`
+        : `<div class="cd-row" tabindex="0" data-tip="${esc(tip)}">${than}</div>`;
+    };
+    const dau = ds.slice(0, toiDa), duoi = ds.slice(toiDa);
+    return `<div class="cd-rows">${dau.map(dong).join('')}</div>${duoi.length
+      ? `<details class="pt-tbl"><summary>${t('Xem thêm')} ${so(duoi.length)} ${t('nhóm nữa')}</summary><div class="cd-rows" style="margin-top:6px">${duoi.map(dong).join('')}</div></details>` : ''}`;
+  }
+
+  /** Một dòng "tỉ lệ có / không" (Plus, xác minh, có ảnh…). */
+  function cdTiLe(o, nhan, chieu, k, phu) {
+    const x = cdLay(o, chieu, k);
+    if (x.it) return `<div class="cd-row it" tabindex="0" data-tip="${esc(`${nhan}\n${t('Dưới 5 người — không hiện số để không lộ danh tính')}`)}"><span class="cd-l">${esc(nhan)}</span><span class="cd-b"></span><span class="cd-p">&lt; 5</span><span class="cd-n"></span></div>`;
+    const p = cdPct(x.n, o.tong);
+    return `<div class="cd-row" tabindex="0" data-tip="${esc(`${nhan}\n${so(x.n)} ${t('người')} · ${so(p)}%${phu ? '\n' + phu : ''}`)}"><span class="cd-l">${esc(nhan)}</span><span class="cd-b"><i style="width:${Math.max(x.n ? 1.5 : 0, p)}%;background:var(--pt-s2)"></i></span><span class="cd-p">${so(p)}%</span><span class="cd-n">${so(x.n)}</span></div>`;
+  }
+
+  /** "Tóm tắt nhanh": mỗi chiều một thanh 100% — ba nhóm lớn nhất + phần còn lại. Dùng cả ở Tổng quan. */
+  function cdTomTat(o, cacChieu) {
+    return (cacChieu || ['quoc_gia', 'vai_tro', 'tuoi', 'tinh_trang']).map((chieu) => {
+      const ds = ((o.chieu || {})[chieu] || []).filter((x) => !x.it).map((x) => ({ k: String(x.k), n: Number(x.n) || 0 })).sort((a, b) => b.n - a.n).slice(0, 3);
+      if (!ds.length) return '';
+      const conLai = Math.max(0, o.tong - ds.reduce((a, b) => a + b.n, 0));
+      const phan = ds.map((d, i) => ({ ten: cdNhan(chieu, d.k), n: d.n, mau: CD_MAU[i] }));
+      if (conLai > 0) phan.push({ ten: t('Còn lại'), n: conLai, mau: CD_MAU[3] });
+      return `<div class="cd-tt"><div class="cd-tt-h">${esc(cdTenChieu(chieu))}</div>
+        <div class="cd-stack" role="img" aria-label="${esc(phan.map((x) => `${x.ten} ${so(cdPct(x.n, o.tong))}%`).join(', '))}">${phan.map((x) => `<i tabindex="0" style="flex:${x.n};background:${x.mau}" data-tip="${esc(`${x.ten}\n${so(x.n)} ${t('người')} · ${so(cdPct(x.n, o.tong))}%`)}"></i>`).join('')}</div>
+        <div class="cd-tt-c">${phan.map((x) => `<span><i class="pt-key" style="--c:${x.mau}"></i>${esc(x.ten)} <b>${so(cdPct(x.n, o.tong))}%</b></span>`).join('')}</div></div>`;
+    }).join('');
+  }
+
+  /** Bảng chéo hai chiều. kieu: 'hang' (% theo hàng) | 'cot' (% theo cột) | 'so' (số người). */
+  function cdBangCheo(o, kieu) {
+    const ch = o.cheo;
+    if (!ch || !ch.a || !ch.b) return `<div class="hint">${t('Chọn hai chiều khác nhau để xem bảng chéo.')}</div>`;
+    const xep = (chieu, ds) => { const tt = CD_GIA_TRI[chieu]; return tt && chieu !== 'tuoi' ? [...ds].sort((x, y) => tt.indexOf(x.k) - tt.indexOf(y.k)) : ds; };
+    const hang = xep(ch.a, cdDong(o, ch.a).filter((d) => !d.it).slice(0, 12));
+    const cot = xep(ch.b, cdDong(o, ch.b).filter((d) => !d.it).slice(0, 8));
+    if (!hang.length || !cot.length) return `<div class="hint">${t('Chưa đủ dữ liệu cho bảng chéo.')}</div>`;
+    const o2 = new Map((ch.o || []).map((x) => [`${x.a}\u0001${x.b}`, x]));
+    const dau = `<tr><th>${esc(cdTenChieu(ch.a))} \\ ${esc(cdTenChieu(ch.b))}</th>${cot.map((c) => `<th class="num">${esc(cdNhan(ch.b, c.k))}</th>`).join('')}<th class="num">${t('Tổng')}</th></tr>`;
+    const than = hang.map((h) => `<tr><td>${esc(cdNhan(ch.a, h.k))}</td>${cot.map((c) => {
+      const x = o2.get(`${h.k}\u0001${c.k}`);
+      const ten = `${cdNhan(ch.a, h.k)} × ${cdNhan(ch.b, c.k)}`;
+      if (x && x.it) return `<td class="pt-coh pt-coh-na" tabindex="0" data-tip="${esc(`${ten}\n${t('Dưới 5 người — không hiện số để không lộ danh tính')}`)}">&lt; 5</td>`;
+      const n = x ? Number(x.n) || 0 : 0;
+      const mau = kieu === 'cot' ? c.n : h.n;
+      const p = cdPct(n, kieu === 'so' ? o.tong : mau);
+      const hien = kieu === 'so' ? so(n) : `${so(p)}%`;
+      const tip = `${ten}\n${so(n)} ${t('người')}\n${so(cdPct(n, h.n))}% ${t('của')} ${cdNhan(ch.a, h.k)}\n${so(cdPct(n, c.n))}% ${t('của')} ${cdNhan(ch.b, c.k)}`;
+      return `<td class="pt-coh" tabindex="0" style="--a:${n ? Math.min(0.85, 0.08 + (p / 100) * 0.77).toFixed(2) : 0}" data-tip="${esc(tip)}"><span>${n ? hien : '0'}</span></td>`;
+    }).join('')}<td class="num">${so(h.n)}</td></tr>`).join('');
+    const chan = `<tr><td><b>${t('Tổng')}</b></td>${cot.map((c) => `<td class="num">${so(c.n)}</td>`).join('')}<td class="num"><b>${so(o.tong)}</b></td></tr>`;
+    return `<div class="scrollx"><table class="tbl pt-cohort"><thead>${dau}</thead><tbody>${than}${chan}</tbody></table></div>
+      <div class="hint" style="margin-top:8px">${kieu === 'hang' ? t('Mỗi ô: tỉ lệ trong nhóm của HÀNG đó. Rê chuột để xem số người.') : kieu === 'cot' ? t('Mỗi ô: tỉ lệ trong nhóm của CỘT đó. Rê chuột để xem số người.') : t('Mỗi ô: số người. Rê chuột để xem tỉ lệ.')} ${t('Hiện tối đa 12 hàng và 8 cột đông nhất; ô dưới 5 người ghi "< 5".')}</div>`;
+  }
+
+  /** Mô tả bộ lọc đang bật: [{khoa, k, ten}] — dùng cho dải "đang lọc" và tệp CSV. */
+  function cdLocDangBat(cd) {
+    const ds = [];
+    CD_LOC_MANG.forEach((khoa) => (cd[khoa] || []).forEach((k) => ds.push({ khoa, k, ten: `${cdTenChieu(khoa)}: ${cdNhan(khoa, k)}` })));
+    if (cd.hoat_dong !== 'all') ds.push({ khoa: 'hoat_dong', ten: `${t('Hoạt động')}: ${({ '24h': t('24 giờ qua'), '7d': t('7 ngày qua'), '30d': t('30 ngày qua'), ngu: t('không hoạt động trên 30 ngày') })[cd.hoat_dong]}` });
+    if (cd.dang_ky !== 'all') ds.push({ khoa: 'dang_ky', ten: `${t('Đăng ký')}: ${({ '7d': t('7 ngày qua'), '30d': t('30 ngày qua'), '90d': t('90 ngày qua') })[cd.dang_ky]}` });
+    if (cd.plus !== 'all') ds.push({ khoa: 'plus', ten: cdNhan('plus', cd.plus) });
+    if (cd.xac_minh !== 'all') ds.push({ khoa: 'xac_minh', ten: cdNhan('xac_minh', cd.xac_minh) });
+    if (cd.noi_bo) ds.push({ khoa: 'noi_bo', ten: t('Gồm tài khoản nội bộ') });
+    if (cd.ca_bi_khoa) ds.push({ khoa: 'ca_bi_khoa', ten: t('Gồm tài khoản bị khoá') });
+    return ds;
+  }
+
+  /** Tệp CSV của đúng những gì đang hiện (số tổng hợp; nhóm dưới 5 người ghi "<5"). */
+  function cdCsv(o, cd) {
+    const o1 = (s) => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+    const dong = [[t('Chân dung người dùng HIMO'), o.luc || ''], [t('Bộ lọc'), cdLocDangBat(cd).map((x) => x.ten).join('; ') || t('không lọc')],
+      [t('Số người khớp bộ lọc'), o.tong], [t('Tổng người dùng'), o.tong_tat_ca], [], [t('Chiều'), t('Nhóm'), t('Số người'), '%']];
+    Object.keys(o.chieu || {}).sort().forEach((chieu) => {
+      const laCo = ['co_anh', 'an_danh', 'rieng_tu', 'co_tb'].includes(chieu);
+      const ten = laCo ? ({ co_anh: t('Có ảnh hồ sơ'), an_danh: t('Bật ẩn danh'), rieng_tu: t('Tài khoản riêng tư'), co_tb: t('Bật thông báo') })[chieu] : cdTenChieu(chieu);
+      ((o.chieu || {})[chieu] || []).forEach((x) => {
+        const nhan = laCo ? (String(x.k) === 'true' ? t('Có') : t('Không')) : cdNhan(chieu, String(x.k));
+        dong.push([ten, nhan, x.it ? '<5' : x.n, x.it ? '' : cdPct(Number(x.n) || 0, o.tong)]);
+      });
+    });
+    if (o.cheo && o.cheo.o && o.cheo.o.length) {
+      dong.push([], [`${cdTenChieu(o.cheo.a)} × ${cdTenChieu(o.cheo.b)}`], [cdTenChieu(o.cheo.a), cdTenChieu(o.cheo.b), t('Số người')]);
+      o.cheo.o.forEach((x) => dong.push([cdNhan(o.cheo.a, String(x.a)), cdNhan(o.cheo.b, String(x.b)), x.it ? '<5' : x.n]));
+    }
+    return '﻿' + dong.map((d) => d.map(o1).join(',')).join('\r\n');
+  }
+
+  /**
+   * tt: { cd (trạng thái bộ lọc — admin.js giữ), nen (kết quả KHÔNG lọc: để dựng danh sách nước / ngôn ngữ), doi(fn) (đổi bộ lọc rồi
+   *       hỏi lại máy chủ), tai(ten, noiDung) (tải tệp) }.
+   */
+  function chanDung(main, o, ctx, tt) {
+    C = ctx;
+    const cd = tt.cd;
+    const nen = tt.nen && !tt.nen.it ? tt.nen : null;
+    const coLoc = cdLocDangBat(cd);
+    const chip = (khoa, k, ten) => `<button type="button" class="chip" data-cd-mang="${khoa}" data-k="${esc(k)}" aria-pressed="${(cd[khoa] || []).includes(k)}">${esc(ten)}</button>`;
+    const chon = (khoa, ds) => `<select data-cd-don="${khoa}" aria-label="${esc(ds[0][1])}">${ds.map(([k, l]) => `<option value="${k}" ${cd[khoa] === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    // Danh sách nước / ngôn ngữ lấy từ chính dữ liệu (không gõ sẵn): nước đông nhất thành ô bấm, phần còn lại trong ô chọn.
+    const nuoc = nen ? ((nen.chieu || {}).quoc_gia || []).filter((x) => !x.it && x.k !== '?').map((x) => String(x.k)) : [];
+    const nuocO = [...new Set([...nuoc.slice(0, 8), ...(cd.quoc_gia || [])])];
+    const nuocKhac = nuoc.filter((k) => !nuocO.includes(k));
+    const ngonNgu = nen ? ((nen.chieu || {}).ngon_ngu || []).filter((x) => !x.it).map((x) => String(x.k)) : [];
+    const nnChon = [...new Set([...(cd.ngon_ngu || [])])];
+    const moThem = cd.moThem || ['dang_nguoi', 'tinh_trang', 'dang_tim', 'ngon_ngu'].some((k) => (cd[k] || []).length) || cd.noi_bo || cd.ca_bi_khoa;
+
+    const boLoc = `<div class="card cd-loc">
+      <div class="cd-lr"><span class="cd-lb">${t('Quốc gia')}</span><div class="chips">${nuocO.map((k) => chip('quoc_gia', k, cdNhan('quoc_gia', k))).join('')}
+        ${nuocKhac.length ? `<select data-cd-them="quoc_gia" aria-label="${t('Nước khác')}"><option value="">${t('Nước khác…')}</option>${nuocKhac.map((k) => `<option value="${esc(k)}">${esc(cdNhan('quoc_gia', k))}</option>`).join('')}</select>` : ''}
+        ${!nuocO.length ? `<span class="hint">${t('Chưa có nước nào đủ 5 người.')}</span>` : ''}</div></div>
+      <div class="cd-lr"><span class="cd-lb">${t('Nhóm tuổi')}</span><div class="chips">${CD_GIA_TRI.tuoi.map((k) => chip('tuoi', k, cdNhan('tuoi', k))).join('')}</div></div>
+      <div class="cd-lr"><span class="cd-lb">${t('Vai trò')}</span><div class="chips">${CD_GIA_TRI.vai_tro.map((k) => chip('vai_tro', k, cdNhan('vai_tro', k))).join('')}</div></div>
+      <div class="cd-lr"><span class="cd-lb">${t('Trạng thái')}</span><div class="chips">
+        ${chon('hoat_dong', [['all', t('Hoạt động: tất cả')], ['24h', t('Hoạt động 24 giờ qua')], ['7d', t('Hoạt động 7 ngày qua')], ['30d', t('Hoạt động 30 ngày qua')], ['ngu', t('Không hoạt động trên 30 ngày')]])}
+        ${chon('dang_ky', [['all', t('Đăng ký: mọi lúc')], ['7d', t('Đăng ký 7 ngày qua')], ['30d', t('Đăng ký 30 ngày qua')], ['90d', t('Đăng ký 90 ngày qua')]])}
+        ${chon('plus', [['all', t('Plus: tất cả')], ['co', t('Có Plus')], ['khong', t('Không có Plus')]])}
+        ${chon('xac_minh', [['all', t('Xác minh: tất cả')], ['co', t('Đã xác minh')], ['khong', t('Chưa xác minh')]])}</div></div>
+      <details id="cdThem" ${moThem ? 'open' : ''}><summary>${t('Thêm bộ lọc')}</summary><div class="cd-loc" style="margin-top:10px">
+        <div class="cd-lr"><span class="cd-lb">${t('Dáng người')}</span><div class="chips">${CD_GIA_TRI.dang_nguoi.map((k) => chip('dang_nguoi', k, cdNhan('dang_nguoi', k))).join('')}</div></div>
+        <div class="cd-lr"><span class="cd-lb">${t('Tình trạng')}</span><div class="chips">${CD_GIA_TRI.tinh_trang.map((k) => chip('tinh_trang', k, cdNhan('tinh_trang', k))).join('')}</div></div>
+        <div class="cd-lr"><span class="cd-lb">${t('Đang tìm')}</span><div class="chips">${CD_GIA_TRI.dang_tim.map((k) => chip('dang_tim', k, cdNhan('dang_tim', k))).join('')}</div></div>
+        <div class="cd-lr"><span class="cd-lb">${t('Ngôn ngữ')}</span><div class="chips">${nnChon.map((k) => chip('ngon_ngu', k, cdNhan('ngon_ngu', k))).join('')}
+          <select data-cd-them="ngon_ngu" aria-label="${t('Ngôn ngữ nói được')}"><option value="">${t('Chọn ngôn ngữ…')}</option>${ngonNgu.filter((k) => !nnChon.includes(k)).map((k) => `<option value="${esc(k)}">${esc(cdNhan('ngon_ngu', k))}</option>`).join('')}</select></div></div>
+        <div class="cd-lr"><span class="cd-lb">${t('Phạm vi')}</span><div class="chips">
+          <label class="cd-ck"><input type="checkbox" data-cd-co="noi_bo" ${cd.noi_bo ? 'checked' : ''}> ${t('Gồm tài khoản nội bộ')}</label>
+          <label class="cd-ck"><input type="checkbox" data-cd-co="ca_bi_khoa" ${cd.ca_bi_khoa ? 'checked' : ''}> ${t('Gồm tài khoản bị khoá')}</label></div></div>
+      </div></details>
+    </div>`;
+
+    const dau = `<div class="pt-head"><div><h1>${t('Chân dung người dùng')}</h1>
+        <p class="sub">${t('Người dùng HIMO là ai: tỉ lệ theo nước, tuổi, vai trò… tính thẳng trên dữ liệu thật mỗi lần mở hoặc đổi bộ lọc. Bấm vào một dòng để lọc theo nhóm đó.')}</p></div>
+      <div class="row"><span class="hint">${o && o.luc ? `${t('Số liệu lúc')} ${esc(new Date(o.luc).toLocaleTimeString(C.locale()))}` : ''}</span>
+        <button class="btn sm" id="cdLamMoi">${t('Làm mới')}</button>${o && !o.it ? `<button class="btn sm" id="cdCsv">${t('Tải CSV')}</button>` : ''}</div></div>`;
+    const dangLoc = `<div class="cd-tom">${o && !o.it
+      ? `<span><b>${so(o.tong)}</b> ${coLoc.length ? `${t('người khớp bộ lọc')} · ${so(cdPct(o.tong, o.tong_tat_ca))}% ${t('của')} ${so(o.tong_tat_ca)} ${t('người dùng')}` : `${t('người dùng')} · ${t('chưa lọc')}`}</span>` : ''}
+      ${coLoc.map((x, i) => `<button type="button" class="cd-x" data-cd-bo="${i}" title="${t('Bỏ bộ lọc này')}">${esc(x.ten)} <span aria-hidden="true">×</span></button>`).join('')}
+      ${coLoc.length ? `<button type="button" class="btn ghost sm" id="cdXoa">${t('Xoá bộ lọc')}</button>` : ''}</div>`;
+
+    let than;
+    if (!o || o.it) {
+      than = `<div class="card"><div class="empty"><b>${t('Nhóm này có dưới 5 người')}</b><br>${t('Không hiện số liệu của nhóm quá nhỏ để không lộ danh tính từng người. Hãy nới bộ lọc.')}
+        ${o && o.tong_tat_ca != null ? `<br><span class="hint">${t('Tổng người dùng trong phạm vi')}: ${so(o.tong_tat_ca)}</span>` : ''}</div></div>`;
+    } else {
+      const hd24 = cdLay(o, 'hoat_dong', '24h'), hd7 = cdLay(o, 'hoat_dong', '7d');
+      const tile = (nhan, x, phu) => cdO(nhan, x.it ? '&lt; 5' : `${so(cdPct(x.n, o.tong))}%`, '', x.it ? t('nhóm dưới 5 người') : `${so(x.n)} ${t('người')}${phu ? ' · ' + phu : ''}`);
+      const kpi = `<div class="tiles pt-tiles">
+        ${cdO(coLoc.length ? t('Người khớp bộ lọc') : t('Người dùng'), so(o.tong), '', coLoc.length ? `${so(cdPct(o.tong, o.tong_tat_ca))}% ${t('của')} ${so(o.tong_tat_ca)}` : t('không gồm tài khoản bị khoá và tài khoản nội bộ'))}
+        ${tile(t('Hoạt động 24 giờ qua'), hd24)}
+        ${(hd24.it || hd7.it) ? cdO(t('Hoạt động 7 ngày qua'), '—', '', t('có nhóm dưới 5 người')) : cdO(t('Hoạt động 7 ngày qua'), `${so(cdPct(hd24.n + hd7.n, o.tong))}%`, '', `${so(hd24.n + hd7.n)} ${t('người')}`)}
+        ${tile('HIMO Plus', cdLay(o, 'plus', 'co'))}
+        ${tile(t('Đã xác minh'), cdLay(o, 'xac_minh', 'co'))}
+        ${tile(t('Bật thông báo'), cdLay(o, 'co_tb', 'true'))}
+      </div>`;
+      const the1 = (chieu, phu, loc, mau) => the(cdTenChieu(chieu), phu, cdThanh(o, chieu, { loc, chon: loc ? cd[loc] || [] : [], mau }));
+      than = `${kpi}
+        ${the(t('Tóm tắt nhanh'), t('ba nhóm lớn nhất của mỗi chiều'), cdTomTat(o))}
+        <div class="cd-grid">
+          ${the1('quoc_gia', t('nước người dùng khai trong hồ sơ'), 'quoc_gia')}
+          ${the1('vai_tro', '', 'vai_tro')}
+          ${the1('tuoi', t('tính từ ngày sinh'), 'tuoi')}
+          ${the1('tinh_trang', '', 'tinh_trang')}
+          ${the1('dang_nguoi', '', 'dang_nguoi')}
+          ${the1('dang_tim', t('một người chọn được nhiều mục — tổng có thể quá 100%'), 'dang_tim')}
+          ${the1('ngon_ngu', t('một người chọn được nhiều ngôn ngữ'), 'ngon_ngu')}
+          ${the1('ngon_ngu_app', t('ngôn ngữ app lúc bật thông báo'), null, 'var(--pt-s1)')}
+          ${the1('chieu_cao', '', null, 'var(--pt-s1)')}
+          ${the1('mbti', '', null, 'var(--pt-s1)')}
+          ${the1('hoat_dong', t('lần cuối mở app'), null, 'var(--pt-s2)')}
+          ${the1('thang_dang_ky', t('12 tháng gần nhất, giờ UTC'), null, 'var(--pt-s2)')}
+          ${the(t('Tài khoản & cài đặt'), t('tỉ lệ trong nhóm đang xem'), `<div class="cd-rows">
+            ${cdTiLe(o, 'HIMO Plus', 'plus', 'co')}${cdTiLe(o, t('Đã xác minh'), 'xac_minh', 'co')}${cdTiLe(o, t('Có ảnh hồ sơ đã duyệt'), 'co_anh', 'true')}
+            ${cdTiLe(o, t('Bật thông báo'), 'co_tb', 'true')}${cdTiLe(o, t('Bật ẩn danh'), 'an_danh', 'true')}${cdTiLe(o, t('Tài khoản riêng tư'), 'rieng_tu', 'true')}</div>`)}
+        </div>
+        ${the(t('Bảng chéo'), t('so hai chiều với nhau — ví dụ vai trò theo từng nước'), `<div class="filters" style="margin-bottom:10px">
+            <select id="cdCheoA" aria-label="${t('Hàng')}">${CD_CHEO.map((k) => `<option value="${k}" ${cd.cheo_a === k ? 'selected' : ''}>${t('Hàng')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
+            <select id="cdCheoB" aria-label="${t('Cột')}">${CD_CHEO.map((k) => `<option value="${k}" ${cd.cheo_b === k ? 'selected' : ''}>${t('Cột')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
+            <span class="chips">${[['hang', t('% theo hàng')], ['cot', t('% theo cột')], ['so', t('Số người')]].map(([k, l]) => `<button type="button" class="chip" data-cd-kieu="${k}" aria-pressed="${(cd.kieu || 'hang') === k}">${l}</button>`).join('')}</span>
+          </div>${cdBangCheo(o, cd.kieu || 'hang')}`)}
+        <div class="hint">${t('Cách tính: mỗi con số là số hồ sơ đếm trực tiếp trên máy chủ lúc tải, không ước lượng. Mặc định không tính tài khoản bị khoá và tài khoản nội bộ. Nhóm dưới 5 người không hiện số. Xu hướng tính dục và cách xưng hô không bao giờ được đưa vào thống kê.')}</div>`;
+    }
+    main.innerHTML = `<div class="stack" id="cdGoc" style="padding-top:14px">${dau}${boLoc}${dangLoc}${than}</div>`;
+    ganChuGiai(main);
+
+    const doi = (fn) => tt.doi(fn);
+    const batTat = (khoa, k) => doi((s) => { const a = s[khoa] || []; s[khoa] = a.includes(k) ? a.filter((x) => x !== k) : [...a, k]; });
+    main.querySelectorAll('[data-cd-mang]').forEach((b) => b.addEventListener('click', () => batTat(b.dataset.cdMang, b.dataset.k)));
+    main.querySelectorAll('[data-cd-dong]').forEach((b) => b.addEventListener('click', () => batTat(b.dataset.cdDong, b.dataset.k)));
+    main.querySelectorAll('[data-cd-them]').forEach((s) => s.addEventListener('change', () => { if (s.value) batTat(s.dataset.cdThem, s.value); }));
+    main.querySelectorAll('[data-cd-don]').forEach((s) => s.addEventListener('change', () => doi((st) => { st[s.dataset.cdDon] = s.value; })));
+    main.querySelectorAll('[data-cd-co]').forEach((c) => c.addEventListener('change', () => doi((st) => { st[c.dataset.cdCo] = c.checked; st.nen = null; })));
+    main.querySelectorAll('[data-cd-bo]').forEach((b) => b.addEventListener('click', () => {
+      const x = coLoc[Number(b.dataset.cdBo)]; if (!x) return;
+      doi((s) => {
+        if (CD_LOC_MANG.includes(x.khoa)) s[x.khoa] = (s[x.khoa] || []).filter((k) => k !== x.k);
+        else if (CD_LOC_DON.includes(x.khoa)) s[x.khoa] = 'all';
+        else { s[x.khoa] = false; s.nen = null; }
+      });
+    }));
+    const xoa = main.querySelector('#cdXoa');
+    if (xoa) xoa.addEventListener('click', () => doi((s) => { CD_LOC_MANG.forEach((k) => { s[k] = []; }); CD_LOC_DON.forEach((k) => { s[k] = 'all'; }); s.noi_bo = false; s.ca_bi_khoa = false; s.nen = null; }));
+    const them = main.querySelector('#cdThem');
+    if (them) them.addEventListener('toggle', () => { cd.moThem = them.open; });
+    const lm = main.querySelector('#cdLamMoi'); if (lm) lm.addEventListener('click', () => doi(() => undefined));
+    const a = main.querySelector('#cdCheoA'), b = main.querySelector('#cdCheoB');
+    if (a) a.addEventListener('change', () => doi((s) => { s.cheo_a = a.value; if (s.cheo_b === a.value) s.cheo_b = CD_CHEO.find((k) => k !== a.value); }));
+    if (b) b.addEventListener('change', () => doi((s) => { s.cheo_b = b.value; if (s.cheo_a === b.value) s.cheo_a = CD_CHEO.find((k) => k !== b.value); }));
+    main.querySelectorAll('[data-cd-kieu]').forEach((c) => c.addEventListener('click', () => { cd.kieu = c.dataset.cdKieu; chanDung(main, o, ctx, tt); }));
+    const csv = main.querySelector('#cdCsv');
+    if (csv) csv.addEventListener('click', () => tt.tai(`himo-chan-dung-${String(o.luc || '').slice(0, 10)}.csv`, cdCsv(o, cd)));
+  }
+  /** Thẻ nhỏ cho trang Tổng quan: chỉ phần "Tóm tắt nhanh". Trả '' khi không có số để hiện. */
+  function chanDungTomTat(o, ctx) {
+    C = ctx;
+    if (!o || o.it || !o.tong) return '';
+    const s = cdTomTat(o, ['quoc_gia', 'vai_tro', 'tuoi']);
+    return s ? the(t('Người dùng là ai'), `${so(o.tong)} ${t('người dùng')} · <a href="#phantich/chandung">${t('Xem chân dung đầy đủ')} →</a>`, s) : '';
+  }
+
+  // ---------------------------------------------------------------- DOANH THU (168)
+  // Máy chủ (admin_doanh_thu) trả số TỔNG HỢP từ sổ doanh thu (mỗi giao dịch RevenueCat báo về một dòng) + ảnh chụp thuê bao hiện tại.
+  // Tệp này chỉ vẽ + nối bộ lọc; không có con số nào gõ sẵn. Tiền quy USD; đây là số ước tính theo RevenueCat, không phải sổ kế toán.
+  const DT_KY = [7, 30, 90, 365];
+  function dtTien(v, ma) {
+    if (v == null || isNaN(Number(v))) return '—';
+    try { return new Intl.NumberFormat(C.locale(), { style: 'currency', currency: ma || 'USD', currencyDisplay: 'narrowSymbol' }).format(Number(v)); }
+    catch (e) { return `${so(Math.round(Number(v) * 100) / 100)} ${ma || 'USD'}`; }
+  }
+  const dtCuaHang = (k) => ({ app_store: 'App Store', play_store: 'Google Play', test_store: 'Test store' })[k] || (k === '?' ? t('Chưa rõ') : k);
+  const dtThoiHan = (k) => ({ P1M: t('1 tháng'), P3M: t('3 tháng'), P1Y: t('12 tháng') })[k] || '';
+  const dtGoi = (k, thoiHan) => (k === '?' ? t('Chưa rõ') : thoiHan ? `${dtThoiHan(thoiHan)} · ${k}` : k);
+  const dtLoai = (r) => (r.loai === 'mua_moi' ? (r.ky === 'TRIAL' ? t('Bắt đầu dùng thử') : t('Mua mới'))
+    : ({ gia_han: t('Gia hạn'), mua_le: t('Mua lẻ'), hoan_tien: t('Hoàn tiền'), dao_hoan_tien: t('Đảo hoàn tiền') })[r.loai] || r.loai);
+  const dtNuoc = (k) => (k === '?' || !k ? t('Chưa rõ') : C.tenNuoc(k) || k);
+
+  /** Thanh ngang theo tiền: [{ten, usd, n, phu?}] — phần trăm tính trên tổng USD của danh sách. */
+  function dtThanh(ds, mau) {
+    if (!ds.length) return `<div class="hint">${t('Chưa có giao dịch nào trong kỳ.')}</div>`;
+    const tong = ds.reduce((a, d) => a + Math.max(0, Number(d.usd) || 0), 0);
+    const max = Math.max(0.01, ...ds.map((d) => Number(d.usd) || 0));
+    return `<div class="cd-rows">${ds.map((d) => {
+      const usd = Number(d.usd) || 0;
+      const p = tong > 0 ? Math.round((usd / tong) * 1000) / 10 : 0;
+      const tip = `${d.ten}\n${dtTien(usd)} · ${so(p)}%\n${so(d.n)} ${t('giao dịch')}${d.phu ? '\n' + d.phu : ''}`;
+      return `<div class="cd-row tien" tabindex="0" data-tip="${esc(tip)}"><span class="cd-l">${esc(d.ten)}</span><span class="cd-b"><i style="width:${Math.max(usd > 0 ? 1.5 : 0, Math.round((usd / max) * 1000) / 10)}%;background:${mau || 'var(--primary)'}"></i></span><span class="cd-p">${esc(dtTien(usd))}</span><span class="cd-n">${so(p)}%</span></div>`;
+    }).join('')}</div>`;
+  }
+
+  function dtCsv(o) {
+    const o1 = (s) => `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+    const tg = o.tong || {}, tb = o.thue_bao || {};
+    const dong = [[t('Doanh thu HIMO Plus'), o.luc || ''], [t('Kỳ'), `${o.tu_ngay} → ${o.den_ngay}`, o.tz], [t('Môi trường'), o.moi_truong], [],
+      [t('Doanh thu gộp (USD)'), tg.gop], [t('Hoàn tiền (USD)'), tg.hoan], [t('Doanh thu ròng (USD)'), tg.rong], [t('Thực nhận ước tính (USD)'), tg.thuc_nhan],
+      [t('Mua mới'), tg.mua_moi], [t('Gia hạn'), tg.gia_han], [t('Hoàn tiền'), tg.hoan_tien], [t('Người đang trả tiền'), tb.dang_tra], [t('MRR ước tính (USD)'), (o.mrr || {}).usd], [],
+      [t('Ngày'), t('Doanh thu gộp (USD)'), t('Hoàn tiền (USD)'), t('Mua mới'), t('Gia hạn'), t('Hoàn tiền')]];
+    (o.chuoi || []).forEach((c) => dong.push([c.ngay, c.gop, c.hoan, c.mua_moi, c.gia_han, c.hoan_tien]));
+    dong.push([], [t('Theo gói'), t('Số giao dịch'), 'USD']);
+    (o.theo_goi || []).forEach((x) => dong.push([dtGoi(x.k, x.thoi_han), x.n, x.usd]));
+    dong.push([], [t('Theo nước'), t('Số giao dịch'), 'USD']);
+    (o.theo_nuoc || []).forEach((x) => dong.push([dtNuoc(x.k), x.n, x.usd]));
+    dong.push([], [t('Theo tiền tệ'), t('Số giao dịch'), t('Tiền gốc'), 'USD']);
+    (o.theo_tien_te || []).forEach((x) => dong.push([x.k, x.n, x.goc, x.usd]));
+    return '﻿' + dong.map((d) => d.map(o1).join(',')).join('\r\n');
+  }
+
+  /** tt: { dt (trạng thái bộ lọc — admin.js giữ), doi(fn) (đổi bộ lọc rồi hỏi lại máy chủ), tai(ten, noiDung) }. */
+  function doanhThu(main, o, ctx, tt) {
+    C = ctx;
+    const dt = tt.dt;
+    const cam = !!(o && o.error);
+    const lc = (o && o.lua_chon) || {};
+    const laThu = dt.moi_truong === 'SANDBOX';
+    const sp = (lc.san_pham || []).filter((x) => (laThu || x.cua_hang !== 'test_store') && (!dt.cua_hang || x.cua_hang === dt.cua_hang));
+    const chon = (khoa, nhan, ds) => `<select data-dt="${khoa}" aria-label="${esc(nhan)}">${ds.map(([k, l]) => `<option value="${esc(k)}" ${String(dt[khoa] || '') === String(k) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    const boLoc = `<div class="card cd-loc">
+      <div class="cd-lr"><span class="cd-lb">${t('Kỳ')}</span><div class="chips">${DT_KY.map((d) => `<button type="button" class="chip" data-dt-ky="${d}" aria-pressed="${dt.ngay === d}">${d} ${t('ngày')}</button>`).join('')}</div></div>
+      <div class="cd-lr"><span class="cd-lb">${t('Lọc')}</span><div class="chips">
+        ${chon('cua_hang', t('Cửa hàng'), [['', t('Cửa hàng: tất cả')], ['app_store', 'App Store'], ['play_store', 'Google Play'], ...(laThu ? [['test_store', 'Test store']] : [])])}
+        ${chon('san_pham', t('Gói'), [['', t('Gói: tất cả')], ...sp.map((x) => [x.k, `${dtThoiHan(x.thoi_han)} · ${dtCuaHang(x.cua_hang)}`])])}
+        ${chon('quoc_gia', t('Quốc gia'), [['', t('Nước: tất cả')], ...((lc.quoc_gia || []).map((k) => [k, dtNuoc(k)]))])}
+        ${chon('moi_truong', t('Môi trường'), [['PRODUCTION', t('Giao dịch thật')], ['SANDBOX', t('Giao dịch thử (sandbox)')]])}</div></div>
+    </div>`;
+    const dau = `<div class="pt-head"><div><h1>${t('Doanh thu')}</h1>
+        <p class="sub">${t('HIMO Plus: mỗi lần mua, gia hạn hay hoàn tiền RevenueCat báo về máy chủ là vào sổ ngay. Tiền quy ra USD. Đây là số ước tính để theo dõi — số chính thức để đối soát và nộp thuế là báo cáo của App Store Connect / Google Play.')}</p></div>
+      <div class="row"><span class="hint">${o && o.luc ? `${t('Số liệu lúc')} ${esc(new Date(o.luc).toLocaleTimeString(C.locale()))}` : ''}</span>
+        <button class="btn sm" id="dtLamMoi">${t('Làm mới')}</button>${o && !cam ? `<button class="btn sm" id="dtCsv">${t('Tải CSV')}</button>` : ''}</div></div>`;
+
+    let than;
+    if (cam) {
+      than = `<div class="card"><div class="empty"><b>${t('Bạn không có quyền xem doanh thu')}</b><br>${t('Chỉ vai Quản trị viên (administrator) và Chủ (owner) xem được thẻ này.')}</div></div>`;
+    } else {
+      const tg = o.tong || {}, tr = o.truoc || {}, tb = o.thue_bao || {}, mrr = o.mrr || {}, soGhi = o.so || {};
+      const n = (v) => Number(v) || 0;
+      const chuoi = o.chuoi || [];
+      const kieu = dt.kieu === 'gd' ? 'gd' : 'tien';
+      const canhBao = `${laThu ? `<div class="alertbar warn"><div><b>${t('Đang xem giao dịch THỬ (sandbox)')}</b><br>${t('Không phải tiền thật. Đổi "Môi trường" về "Giao dịch thật" để xem doanh thu.')}</div></div>` : ''}
+        ${n(soGhi.thieu) > 0 ? `<div class="alertbar"><div><b>${so(soGhi.thieu)} ${t('sự kiện có tiền chưa vào sổ')}</b><br>${t('Con số bên dưới đang thiếu các giao dịch này. Chạy trong SQL Editor:')} <code>select public.billing_doanh_thu_bu();</code></div></div>` : ''}
+        ${n(soGhi.dong) === 0 ? `<div class="alertbar ok"><div><b>${t('Chưa có giao dịch nào trong sổ')}</b><br>${t('Sổ ghi từ lúc áp bản vá 168 (và ghi bù các sự kiện trong 90 ngày trước đó). Khi có người mua HIMO Plus, giao dịch hiện ở đây trong vài giây.')}</div></div>` : ''}`;
+      const kpi = `<div class="tiles pt-tiles dt-tiles">
+        ${cdO(t('Doanh thu gộp'), esc(dtTien(tg.gop)), bienDong(n(tg.gop), n(tr.gop), 'len'), `${so(n(tg.mua_moi) + n(tg.gia_han) + n(tg.mua_le))} ${t('giao dịch trả tiền')}`)}
+        ${cdO(t('Hoàn tiền'), esc(dtTien(tg.hoan)), bienDong(n(tg.hoan_tien), n(tr.hoan_tien), 'xuong'), `${so(tg.hoan_tien)} ${t('lần')}${n(tg.dao_hoan) ? ` · ${t('đảo lại')} ${esc(dtTien(tg.dao_hoan))}` : ''}`)}
+        ${cdO(t('Doanh thu ròng'), esc(dtTien(tg.rong)), bienDong(n(tg.rong), n(tr.rong), 'len'), t('gộp trừ hoàn tiền'))}
+        ${cdO(t('Thực nhận ước tính'), esc(dtTien(tg.thuc_nhan)), '', n(tg.thieu_ti_le) ? `${so(tg.thieu_ti_le)} ${t('giao dịch chưa rõ thuế / phí')}` : t('sau thuế và phí cửa hàng'))}
+        ${cdO(t('Người đang trả tiền'), so(tb.dang_tra), '', n(o.nguoi_dung) ? `${so(Math.round((n(tb.dang_tra) / n(o.nguoi_dung)) * 1000) / 10)}% ${t('của')} ${so(o.nguoi_dung)} ${t('người dùng')}` : t('lúc này'))}
+        ${cdO(t('MRR ước tính'), esc(dtTien(mrr.usd)), '', n(mrr.thieu_gia) ? `${so(mrr.thieu_gia)} ${t('thuê bao chưa có giá tham chiếu')}` : t('gói đang tự gia hạn, quy về một tháng'))}
+        ${cdO(t('Mua mới'), so(tg.mua_moi), bienDong(n(tg.mua_moi), n(tr.mua_moi), 'len'), n(tg.dung_thu) ? `+ ${so(tg.dung_thu)} ${t('bắt đầu dùng thử')}` : '')}
+        ${cdO(t('Gia hạn'), so(tg.gia_han), bienDong(n(tg.gia_han), n(tr.gia_han), 'len'), n(tg.doi_tu_dung_thu) ? `${so(tg.doi_tu_dung_thu)} ${t('từ dùng thử')}` : '')}
+      </div>`;
+      const bieuDo = the(t('Theo ngày'), `${esc(fmtNgayDt(o.tu_ngay))} → ${esc(fmtNgayDt(o.den_ngay))} · ${esc(o.tz || 'UTC')}`,
+        `<div class="row" style="margin-bottom:8px"><span class="chips">${[['tien', t('Doanh thu (USD)')], ['gd', t('Số giao dịch')]].map(([k, l]) => `<button type="button" class="chip" data-dt-kieu="${k}" aria-pressed="${kieu === k}">${l}</button>`).join('')}</span></div>
+        ${chuoi.length ? cho((W) => cotDoc(chuoi.map((c) => (kieu === 'tien' ? n(c.gop) : n(c.mua_moi) + n(c.gia_han))), chuoi.map((c) => ngayNgan(c.ngay)), { cao: 190, W, ten: kieu === 'tien' ? t('Doanh thu gộp (USD)') : t('Mua mới + gia hạn') })) : `<div class="hint">${t('Chưa có dữ liệu.')}</div>`}
+        ${n(tg.chua_ro_gia) ? `<div class="hint">${so(tg.chua_ro_gia)} ${t('giao dịch trong kỳ RevenueCat chưa báo giá — được đếm nhưng chưa cộng vào tiền.')}</div>` : ''}`);
+      const tbDong = (nhan, v, phu) => `<div class="cd-row tien" tabindex="0" data-tip="${esc(`${nhan}: ${so(v)}${phu ? '\n' + phu : ''}`)}"><span class="cd-l">${esc(nhan)}</span><span class="cd-b"><i style="width:${n(tb.dang_tra) ? Math.min(100, Math.round((n(v) / Math.max(1, n(tb.dang_tra))) * 1000) / 10) : 0}%;background:var(--pt-s2)"></i></span><span class="cd-p">${so(v)}</span><span class="cd-n"></span></div>`;
+      const thueBao = the(t('Thuê bao lúc này'), t('ảnh chụp hiện tại, không theo kỳ'), `<div class="cd-rows">
+          ${tbDong(t('Đang trả tiền'), tb.dang_tra, t('còn hạn (kể cả đang trong thời gian gia hạn thêm)'))}
+          ${tbDong(t('Đang bật tự gia hạn'), tb.tu_gia_han)}
+          ${tbDong(t('Đã huỷ, còn hạn'), tb.da_huy, t('sẽ hết Plus khi hết kỳ đã trả'))}
+          ${tbDong(t('Sắp hết hạn trong 7 ngày'), tb.sap_het_7d, t('đã huỷ và hết kỳ trong 7 ngày tới'))}
+          ${tbDong(t('Đang lỗi thanh toán'), tb.loi_thanh_toan, t('cửa hàng chưa trừ được tiền'))}
+          ${tbDong(t('Đang dùng thử'), tb.dung_thu)}</div>
+        <div class="hint" style="margin-top:8px">${t('Hết hạn trong 30 ngày qua')}: <b>${so(tb.het_han_30d)}</b> · ${t('Đang dùng Plus tặng (không tính doanh thu)')}: <b>${so(o.plus_tang)}</b></div>
+        ${(o.thue_bao_goi || []).length ? `<div class="hint" style="margin-top:6px">${(o.thue_bao_goi || []).map((x) => `${esc(dtGoi(x.k, x.thoi_han))}: <b>${so(x.n)}</b>`).join(' · ')}</div>` : ''}`);
+      const ganDay = o.gan_day || [];
+      than = `${canhBao}${kpi}${bieuDo}
+        <div class="cd-grid">
+          ${the(t('Theo gói'), t('giao dịch trả tiền trong kỳ'), dtThanh((o.theo_goi || []).map((x) => ({ ten: dtGoi(x.k, x.thoi_han), usd: x.usd, n: x.n }))))}
+          ${the(t('Theo nước'), t('theo vị trí gần nhất của người mua (RevenueCat ghi nhận)'), dtThanh((o.theo_nuoc || []).slice(0, 12).map((x) => ({ ten: dtNuoc(x.k), usd: x.usd, n: x.n })), 'var(--pt-s1)'))}
+          ${the(t('Theo cửa hàng'), '', dtThanh((o.theo_cua_hang || []).map((x) => ({ ten: dtCuaHang(x.k), usd: x.usd, n: x.n })), 'var(--pt-s3)'))}
+          ${the(t('Theo tiền tệ'), t('tiền khách thật sự trả, và quy USD'), dtThanh((o.theo_tien_te || []).slice(0, 12).map((x) => ({ ten: x.k === '?' ? t('Chưa rõ') : `${x.k} · ${dtTien(x.goc, x.k === '?' ? 'USD' : x.k)}`, usd: x.usd, n: x.n })), 'var(--pt-s2)'))}
+          ${thueBao}
+        </div>
+        ${the(t('Giao dịch gần nhất'), t('25 dòng mới nhất trong kỳ — không gắn với người dùng nào'), ganDay.length ? `<div class="scrollx"><table class="tbl"><thead><tr>
+            <th>${t('Lúc')}</th><th>${t('Loại')}</th><th>${t('Gói')}</th><th>${t('Nước')}</th><th>${t('Cửa hàng')}</th><th class="num">${t('Tiền gốc')}</th><th class="num">USD</th></tr></thead>
+          <tbody>${ganDay.map((r) => `<tr><td>${esc(new Date(r.luc).toLocaleString(C.locale(), { dateStyle: 'short', timeStyle: 'short' }))}</td>
+            <td>${r.loai === 'hoan_tien' ? `<span class="tag danger">${esc(dtLoai(r))}</span>` : esc(dtLoai(r))}</td><td>${esc(r.san_pham || '—')}</td><td>${esc(dtNuoc(r.quoc_gia))}</td>
+            <td>${esc(dtCuaHang(r.cua_hang || '?'))}</td><td class="num">${r.goc == null ? '—' : esc(dtTien(r.goc, r.tien_te || 'USD'))}</td><td class="num"><b>${r.usd == null ? '—' : esc(dtTien(r.usd))}</b></td></tr>`).join('')}</tbody></table></div>`
+          : `<div class="hint">${t('Chưa có giao dịch nào trong kỳ.')}</div>`)}
+        <div class="hint">${t('Cách tính: mỗi dòng sổ là một sự kiện có tiền của RevenueCat (mua mới, gia hạn, mua lẻ, hoàn tiền). Giá USD do RevenueCat quy đổi lúc giao dịch. Thực nhận = giá × (1 − thuế) × (1 − phí cửa hàng) theo tỉ lệ RevenueCat ước tính. MRR = các gói đang tự gia hạn × giá trung bình 90 ngày của gói đó, quy về một tháng. Hoàn tiền của kỳ cũ hơn kỳ mới nhất có thể không được RevenueCat báo.')}
+          ${soGhi.tu ? ` ${t('Sổ có dữ liệu từ')} ${esc(new Date(soGhi.tu).toLocaleDateString(C.locale()))} (${so(soGhi.dong)} ${t('dòng')}).` : ''}</div>`;
+    }
+    main.innerHTML = `<div class="stack" id="dtGoc" style="padding-top:14px">${dau}${boLoc}${than}</div>`;
+    veBieuDo(main);
+
+    main.querySelectorAll('[data-dt-ky]').forEach((b) => b.addEventListener('click', () => tt.doi((s) => { s.ngay = Number(b.dataset.dtKy); })));
+    main.querySelectorAll('[data-dt]').forEach((s) => s.addEventListener('change', () => tt.doi((st) => {
+      st[s.dataset.dt] = s.value;
+      if (s.dataset.dt === 'cua_hang' || s.dataset.dt === 'moi_truong') st.san_pham = '';     // gói thuộc một cửa hàng — đổi cửa hàng thì bỏ lọc gói
+      if (s.dataset.dt === 'moi_truong') { st.quoc_gia = ''; if (st.cua_hang === 'test_store') st.cua_hang = ''; }
+    })));
+    main.querySelectorAll('[data-dt-kieu]').forEach((c) => c.addEventListener('click', () => { dt.kieu = c.dataset.dtKieu; doanhThu(main, o, ctx, tt); }));
+    const lm = main.querySelector('#dtLamMoi'); if (lm) lm.addEventListener('click', () => tt.doi(() => undefined));
+    const csv = main.querySelector('#dtCsv');
+    if (csv) csv.addEventListener('click', () => tt.tai(`himo-doanh-thu-${String(o.den_ngay || '').slice(0, 10)}.csv`, dtCsv(o)));
+  }
+  const fmtNgayDt = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(s || ''); };
+  /** Khối nhỏ cho trang Tổng quan. Trả '' khi máy chủ chưa có 168, người xem không có quyền, hoặc chưa có gì để hiện. */
+  function doanhThuTomTat(o, ctx) {
+    C = ctx;
+    if (!o || o.error || !o.tong) return '';
+    const tg = o.tong, tb = o.thue_bao || {}, ch = o.chuoi || [];
+    const homNay = ch.length ? Number(ch[ch.length - 1].gop) || 0 : 0;
+    const o1 = (v, l) => `<div class="tile" style="cursor:pointer" data-go="solieu/doanhthu"><div class="v">${v}</div><div class="l">${esc(l)}</div></div>`;
+    return `<div class="sec lon"><h2>${t('Doanh thu')}</h2><span class="hint">${t('HIMO Plus, quy USD, ước tính theo RevenueCat')}</span></div>
+      <div class="tiles">${o1(esc(dtTien(homNay)), t('hôm nay'))}${o1(esc(dtTien(tg.gop)), `${o.ngay} ${t('ngày qua (gộp)')}`)}${o1(so(tb.dang_tra), t('người đang trả tiền'))}${o1(esc(dtTien((o.mrr || {}).usd)), t('MRR ước tính'))}</div>`;
+  }
+
+  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, chuGiai: ganChuGiai };
 })();

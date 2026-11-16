@@ -9,6 +9,7 @@ window.HIMO_EN1 = {
   "hoạt động hôm nay": "active today",
   "máy đã bật thông báo": "device with notifications on",
   "mục": "item",
+  "sự kiện": "event",
   "người": "person",
   "người dùng": "user",
   "thông báo trong 24 giờ": "notification in 24 hours",

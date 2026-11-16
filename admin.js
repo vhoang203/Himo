@@ -51,9 +51,15 @@
     dat('#lgForgot', t('Quên mật khẩu?'));
     dat('#logout', t('Đăng xuất'));
     const f = $('#freshness'); if (f) f.title = t('Trang tự làm mới mỗi phút');
+    const lm = $('#lamMoi'); if (lm) { lm.title = t('Làm mới số liệu ngay'); lm.setAttribute('aria-label', lm.title); }
     document.title = t('Quản trị') + ' · HIMO';
   }
   const locale = () => (lang === 'en' ? 'en-GB' : 'vi-VN');
+  /** Tên nước theo mã ISO 2 chữ, theo ngôn ngữ đang chọn; trình duyệt không có Intl.DisplayNames thì trả lại mã. */
+  const tenNuoc = (ma) => {
+    if (!ma || !/^[A-Za-z]{2}$/.test(ma)) return ma || '';
+    try { return new Intl.DisplayNames([locale()], { type: 'region' }).of(ma.toUpperCase()) || ma; } catch (e) { return ma; }
+  };
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || !window.supabase) {
     document.body.innerHTML = `<div class="login"><div class="card"><h2>${t('Chưa cấu hình')}</h2><p class="hint">${t('Thiếu config.js (SUPABASE_URL, SUPABASE_ANON_KEY) hoặc không tải được thư viện. Kiểm tra mạng rồi tải lại trang.')}</p></div></div>`;
     return;
@@ -84,13 +90,13 @@
   window.addEventListener('pageshow', (ev) => { if (ev.persisted) location.reload(); });
 
   // ---------------------------------------------------------------- tiện ích
-  const REASON = {}, KIND = {}, RSTATUS = {}, MOD = {}, ACTION = {};
+  const REASON = {}, KIND = {}, RSTATUS = {}, MOD = {}, ACTION = {}, LOAI_SK = {}, LY_DO_SK = {};
   function veTuDien() {
     Object.assign(REASON, { fake: `${t('Giả mạo')}`, harassment: `${t('Quấy rối')}`, underage: `${t('Dưới 18 tuổi')}`, scam: `${t('Lừa đảo')}`, inappropriate: `${t('Nội dung phản cảm')}`, other: `${t('Khác')}`,
       hate: `${t('Thù ghét / phân biệt')}`, violence: `${t('Đe doạ / bạo lực')}`, spam: `${t('Spam / lừa đảo')}`, impersonation: `${t('Mạo danh')}`,
       privacy: `${t('Xâm phạm riêng tư')}`, ncii: `${t('Ảnh thân mật không đồng ý')}`, sexual: `${t('Tình dục bị cấm')}`, ip: `${t('Bản quyền')}` });
     Object.assign(KIND, { profile: `${t('Hồ sơ')}`, post: `${t('Bài đăng')}`, comment: `${t('Bình luận')}`, message: `${t('Tin nhắn')}`, album: `${t('Ảnh album')}`, unknown: `${t('Không rõ (báo cáo cũ)')}`, user: `${t('Tài khoản')}`, none: '—',
-      story: `${t('Story')}`, moment: `${t('Bộ sưu tập')}`, group: `${t('Nhóm')}`, group_poll: `${t('Bình chọn')}`, group_event: `${t('Sự kiện')}`,
+      story: `${t('Story')}`, moment: `${t('Bộ sưu tập')}`, anh_tu_xoa: `${t('Ảnh tự xoá')}`, group: `${t('Nhóm')}`, group_poll: `${t('Bình chọn')}`, group_event: `${t('Sự kiện')}`,
       follow_request: `${t('Lời mời theo dõi')}`, message_request: `${t('Lời mời nhắn tin')}` });
     Object.assign(RSTATUS, { open: `${t('Đang mở')}`, reviewed: `${t('Đã xem')}`, actioned: `${t('Đã xử lý')}`, all: `${t('Tất cả')}` });
     Object.assign(MOD, { active: `${t('Bình thường')}`, suspended: `${t('Tạm khoá')}`, banned: `${t('Khoá vĩnh viễn')}` });
@@ -108,6 +114,17 @@
       name_override: `${t('Cho đổi tên một lần')}`,   // 101
     });
     Object.assign(KIND, { conversation: `${t('Hội thoại')}`, promo: `${t('Ưu đãi')}`, admin: `${t('Quản trị viên')}`, report: `${t('Báo cáo')}`, chat: `${t('Ảnh chat')}`, media: `${t('Ảnh')}` });
+    // 151 — sự kiện, nước chỉ trực tuyến, bằng chứng nhóm
+    Object.assign(ACTION, {
+      ADMIN_HIDE_EVENT: `${t('Ẩn sự kiện')}`, ADMIN_RESTORE_EVENT: `${t('Hiện lại sự kiện')}`,
+      ADMIN_RESTRICT_COUNTRY: `${t('Thêm nước chỉ trực tuyến')}`, ADMIN_UNRESTRICT_COUNTRY: `${t('Bỏ nước chỉ trực tuyến')}`,
+      ADMIN_VIEW_GROUP_EVIDENCE: `${t('Mở tin bị gỡ khỏi nhóm')}`, ADMIN_DELETE_CONTENT: `${t('Gỡ nội dung')}`,
+    });
+    Object.assign(KIND, { event: `${t('Sự kiện')}`, event_cover: `${t('Ảnh bìa sự kiện')}`, country: `${t('Quốc gia')}` });
+    Object.assign(LOAI_SK, { pride: 'Pride', tiec: `${t('Tiệc')}`, the_thao: `${t('Thể thao')}`, hoi_thao: `${t('Hội thảo')}`,
+      tinh_nguyen: `${t('Tình nguyện')}`, ca_phe: `${t('Cà phê')}`, khac: `${t('Khác')}` });
+    Object.assign(LY_DO_SK, { bay: `${t('Có thể là bẫy, không an toàn')}`, gia_mao: `${t('Giả mạo')}`, '18_plus': `${t('Nội dung 18+')}`,
+      spam: `${t('Spam, quảng cáo')}`, khac: `${t('Lý do khác')}` });
   }
   veTuDien();
 
@@ -116,9 +133,12 @@
     if (!ts) return '';
     const d = new Date(ts);
     if (isNaN(d.getTime())) return '';
+    // rà soát 15/11: ghi múi giờ (người xem ở Mỹ / Canada / VN); tiếng Anh theo dạng Mỹ
+    let vung = '';
+    try { vung = (new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName') || {}).value || ''; } catch (e) { vung = ''; }
     return lang === 'en'
-      ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-      : `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      ? `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}${vung ? ' ' + vung : ''}`
+      : `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}${vung ? ' ' + vung : ''}`;
   };
   /** Chỉ ngày, không giờ. Chuỗi "YYYY-MM-DD" phải đọc theo giờ địa phương,
    *  vì new Date("2026-01-15") là nửa đêm UTC — ở múi giờ âm sẽ lùi một ngày. */
@@ -143,6 +163,8 @@
   const hoursOpen = (ts) => Math.floor((Date.now() - new Date(ts).getTime()) / 3600000);
   const friendly = (e) => {
     const m = (e && e.message) || String(e);
+    if (/mfa_required/.test(m)) return `${t('Cần xác thực hai lớp. Vào Hệ thống → Vận hành để bật.')}`;   // 166c
+    if (/reason_required/.test(m)) return `${t('Cần ghi lý do (ít nhất 3 ký tự).')}`;                       // 166c
     if (/unavailable/i.test(m)) return `${t('Không có quyền làm việc này (tài khoản không phải quản trị viên?).')}`;
     if (/Invalid login credentials/i.test(m)) return `${t('Email hoặc mật khẩu không đúng.')}`;
     if (/user_banned|banned/i.test(m)) return `${t('Tài khoản này đang bị khoá.')}`;
@@ -163,14 +185,16 @@
   // Ảnh: URL có chữ ký 10 phút, ưu tiên bản thu nhỏ; ảnh cũ chưa có bản nhỏ thì lấy bản lớn.
   const urlCache = new Map();
   const thumbOf = (p) => p.replace(/(\.[A-Za-z0-9]+)$/, '_t$1');
-  async function photoUrl(path, thumb) {
+  /** rieng = tệp vừa được cấp quyền xem có ghi nhật ký (admin_mo_anh / bằng chứng): URL sống 120 giây và KHÔNG vào bộ nhớ đệm —
+   *  URL có chữ ký là vé ai cầm cũng dùng được, đừng để nó sống lâu hơn việc xem (rà soát 15/11). */
+  async function photoUrl(path, thumb, rieng) {
     if (!path) return null;
     const key = (thumb ? 't:' : 'f:') + path;
-    const c = urlCache.get(key); if (c && c.exp > Date.now()) return c.url;
-    const tryPath = async (p) => { const { data, error } = await sb.storage.from('photos').createSignedUrl(p, 600); return error ? null : data.signedUrl; };
+    const c = rieng ? null : urlCache.get(key); if (c && c.exp > Date.now()) return c.url;
+    const tryPath = async (p) => { const { data, error } = await sb.storage.from('photos').createSignedUrl(p, rieng ? 120 : 600); return error ? null : data.signedUrl; };
     let url = thumb ? await tryPath(thumbOf(path)) : null;
     if (!url) url = await tryPath(path);
-    if (url) {
+    if (url && !rieng) {
       if (urlCache.size > 400) {   // dọn mục hết hạn, đừng để phình mãi
         const gio = Date.now();
         urlCache.forEach((v, k) => { if (v.exp <= gio) urlCache.delete(k); });
@@ -372,6 +396,7 @@
       reason_required: `${t('Cần ghi lý do (ít nhất 3 ký tự).')}`,
       forbidden: `${t('Vai trò của bạn không có quyền này.')}`,
       not_found: `${t('Không tìm thấy.')}`, bad_request: `${t('Yêu cầu không hợp lệ.')}`,
+      self_report: `${t('Nội dung của chính bạn — để một quản trị viên khác quyết định.')}`,   // 083
     });
   }
   veLoiNhayCam();
@@ -382,8 +407,9 @@
     if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return null; }
     return ans.note;
   }
-  /** Gọi một RPC nhạy cảm; gặp mfa_required thì mời nhập mã rồi gọi lại một lần. */
-  async function goiNhayCam(name, args) {
+  /** Gọi một RPC nhạy cảm; gặp mfa_required thì mời nhập mã rồi gọi lại một lần.
+   *  loiRieng: câu riêng cho một mã lỗi của màn gọi (vd. forbidden ở danh sách nước chỉ trực tuyến). */
+  async function goiNhayCam(name, args, loiRieng) {
     let d = await rpc(name, args);
     if (d && d.error === 'mfa_required') {
       if (await canXacThuc()) { if (await xacThucHaiLop()) d = await rpc(name, args); }
@@ -393,15 +419,23 @@
           if (data && data.currentLevel === 'aal2') { toast(t('Yếu tố xác thực hai lớp của bạn chưa được chủ dự án duyệt. Nhờ chủ dự án duyệt rồi thử lại.'), true); return null; } } catch (e) { /* bỏ qua */ }
       }
     }
-    if (d && d.error) { toast(LOI_NHAY_CAM[d.error] || d.error, true); return null; }
+    if (d && d.error) { toast((loiRieng && loiRieng[d.error]) || LOI_NHAY_CAM[d.error] || d.error, true); return null; }
     return d;
+  }
+  /** 166c: khoá / cấm / xoá tài khoản cần phiên hai lớp — máy chủ ném 'mfa_required' → xác thực rồi thử lại MỘT lần. */
+  async function rpcHaiLop(name, args) {
+    try { return await rpc(name, args); } catch (e) {
+      if (!/mfa_required/.test((e && e.message) || '')) throw e;
+      if (!(await canXacThuc()) || !(await xacThucHaiLop())) throw e;
+      return rpc(name, args);
+    }
   }
   /** Xin quyền đọc ảnh riêng (ghi nhật ký) rồi lấy URL có chữ ký. */
   async function moAnhRieng(paths, lyDo) {
     const d = await goiNhayCam('admin_mo_anh', { p_paths: paths, p_reason: lyDo });
     if (!d) return {};
     const out = {};
-    for (const pth of paths) { urlCache.delete('f:' + pth); urlCache.delete('t:' + pth); out[pth] = await photoUrl(pth, false); }
+    for (const pth of paths) { urlCache.delete('f:' + pth); urlCache.delete('t:' + pth); out[pth] = await photoUrl(pth, false, true); }
     return out;
   }
   async function xemHoiThoai(u) {
@@ -418,10 +452,13 @@
       m.querySelectorAll('[data-conv]').forEach((b) => b.addEventListener('click', () => docHoiThoai(b.dataset.conv, lyDo)));
     });
   }
-  async function docHoiThoai(convId, lyDo) {
-    const d = await goiNhayCam('admin_xem_hoi_thoai', { p_conversation: convId, p_reason: lyDo, p_limit: 300 }); if (!d) return;
+  async function docHoiThoai(convId, lyDo, truoc) {
+    // rà soát 15/11: quá 300 tin → "Tải 300 tin cũ hơn" (p_before; máy chủ ghi nhật ký mỗi lần)
+    const d = await goiNhayCam('admin_xem_hoi_thoai', { p_conversation: convId, p_reason: lyDo, p_limit: 300, ...(truoc ? { p_before: truoc } : {}) }); if (!d) return;
     const ms = d.messages || [];
+    const coCuHon = ms.length >= 300 && ms[0] && ms[0].created_at;
     modalRong(`<h2>${t('Tin nhắn')}</h2><p>${t('Hiện tối đa 300 tin gần nhất. Tin đã thu hồi không còn nội dung trên máy chủ.')}</p>
+      ${coCuHon ? `<div class="row" style="margin-bottom:8px"><button class="btn sm" id="mCuHon">${t('Tải 300 tin cũ hơn (ghi nhật ký)')}</button></div>` : ''}${truoc ? `<div class="hint">${t('Đang xem tin trước')} ${esc(fmtDate(truoc))}</div>` : ''}
       <div>${ms.length ? ms.map((x) => `<div class="msg"><span class="who">${esc(x.sender_name || String(x.sender_id).slice(0, 8))}</span><span class="when">${esc(fmtDate(x.created_at))}</span>
         ${x.recalled_at ? `<div class="body hint">${t('(đã thu hồi)')}</div>` : ''}
         ${x.body ? `<div class="body">${esc(x.body)}</div>` : ''}
@@ -429,6 +466,7 @@
         ${x.lat != null && x.lng != null ? `<div class="hint">📍 ${esc(Number(x.lat).toFixed(5))}, ${esc(Number(x.lng).toFixed(5))}</div>` : ''}</div>`).join('') : `<div class="empty">${t('Không có tin nhắn.')}</div>`}</div>
       <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" id="mCancel">${t('Đóng')}</button></div>`, (m) => {
       $('#mCancel', m).onclick = () => closeModal();
+      if ($('#mCuHon', m)) $('#mCuHon', m).onclick = () => { docHoiThoai(convId, lyDo, ms[0].created_at); };
       m.querySelectorAll('[data-anh]').forEach((b) => b.addEventListener('click', async () => {
         const pth = b.dataset.anh; const urls = await moAnhRieng([pth], lyDo);
         if (urls[pth]) { const img = document.createElement('img'); img.className = 'anh-rieng'; img.src = urls[pth]; b.replaceWith(img); }
@@ -489,20 +527,34 @@
   // Địa chỉ có dạng #nhóm/mục/id — ví dụ #antoan/baocao/<id>, #nguoidung/<id>.
   // Mỗi nhóm là một mảng việc tách bạch, để lúc làm việc không phải nhìn thứ
   // không liên quan.
+  // Thứ tự (15/11): việc phải làm hằng ngày đứng trước, phần để hiểu người dùng đứng sau, kỹ thuật cuối cùng. `muc` = tên mục
+  // trên thanh bên (màn rộng). Trong An toàn: hàng đợi có hạn trước (báo cáo, ảnh, xác minh, quét Story), rồi mới tới tra cứu.
   const NHOM = [
     { k: 'tongquan',  ten: 'Tổng quan', subs: [] },
-    { k: 'phantich',  ten: 'Phân tích',
-      subs: [['chienluoc', 'Chiến lược'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories']] },
-    { k: 'antoan',    ten: 'An toàn',   badge: 'badgeReports',
-      subs: [['baocao', 'Báo cáo'], ['anh', 'Duyệt ảnh'], ['phat', 'Đang bị phạt'], ['taipham', 'Bị báo cáo nhiều lần']] },
+    { k: 'antoan',    ten: 'An toàn',   badge: 'badgeReports', muc: 'Việc hằng ngày',
+      subs: [['baocao', 'Báo cáo'], ['anh', 'Duyệt ảnh'], ['xacminh', 'Xác minh selfie'], ['quetstory', 'Quét Story'], ['phat', 'Đang bị phạt'], ['taipham', 'Bị báo cáo nhiều lần'], ['bangchung', 'Tin bị gỡ khỏi nhóm']] },
     { k: 'nguoidung', ten: 'Người dùng', subs: [] },
-    { k: 'noidung',   ten: 'Nội dung',
-      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận']] },
+    // 151: số sự kiện cần xử lý có badge riêng ở Nội dung — badge An toàn giữ đúng nghĩa "việc có hạn 24 giờ" (báo cáo + ảnh chờ).
+    { k: 'noidung',   ten: 'Nội dung',  badge: 'badgeNoiDung',
+      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện']] },
+    { k: 'phantich',  ten: 'Phân tích', muc: 'Hiểu người dùng',
+      subs: [['chienluoc', 'Chiến lược'], ['chandung', 'Chân dung người dùng'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories'], ['sukien', 'Sự kiện & tin thoại']] },
     { k: 'solieu',    ten: 'Số liệu',
-      subs: [['tangtruong', 'Tăng trưởng'], ['giuchan', 'Giữ chân'], ['khuvuc', 'Khu vực & ngôn ngữ'], ['nhucau', 'Nhu cầu trả phí']] },
-    { k: 'hethong',   ten: 'Hệ thống',
-      subs: [['vanhanh', 'Vận hành'], ['nhatky', 'Nhật ký']] },
+      subs: [['tangtruong', 'Tăng trưởng'], ['doanhthu', 'Doanh thu'], ['giuchan', 'Giữ chân'], ['khuvuc', 'Khu vực & ngôn ngữ'], ['nhucau', 'Nhu cầu trả phí']] },
+    { k: 'hethong',   ten: 'Hệ thống', muc: 'Kỹ thuật',
+      subs: [['vanhanh', 'Vận hành'], ['nhatky', 'Nhật ký'], ['nuoc', 'Nước chỉ trực tuyến']] },
   ];
+  // Biểu tượng của thanh bên: SVG vẽ tay, nằm ngay trong trang (CSP không cho tải từ ngoài).
+  const BT = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    tongquan: BT('<rect x="3" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8"/>'),
+    antoan: BT('<path d="M12 3l8 3v6c0 4.6-3.2 8-8 9-4.8-1-8-4.4-8-9V6l8-3z"/><path d="M9 12l2.2 2.2L15.2 10"/>'),
+    nguoidung: BT('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8"/><path d="M18.5 14.9c1.6.8 2.7 2.5 3 5.1"/>'),
+    noidung: BT('<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15.5l-5-5-8.5 9"/>'),
+    phantich: BT('<path d="M3 3v18h18"/><path d="M7 14.5l4-4 3 3 5.5-6.5"/>'),
+    solieu: BT('<path d="M5 20v-9"/><path d="M12 20V5"/><path d="M19 20v-6"/><path d="M2.5 20h19"/>'),
+    hethong: BT('<path d="M4 6h8"/><path d="M18 6h2"/><circle cx="15" cy="6" r="2.2"/><path d="M4 12h2"/><path d="M12 12h8"/><circle cx="9" cy="12" r="2.2"/><path d="M4 18h8"/><path d="M18 18h2"/><circle cx="15" cy="18" r="2.2"/>'),
+  };
   const nhomCua = (k) => NHOM.find((n) => n.k === k) || NHOM[0];
 
   const state = {
@@ -516,8 +568,16 @@
     },
     ng: { q: '', status: 'all', country: 'all', hoatDong: 'all', sort: 'recent', trang: 0 },
     nk: { q: '', action: 'all', trang: 0 },
+    sk: { loc: 'can_xu_ly', q: '', trang: 0 },     // 151 — sự kiện
+    bcn: { trang: 0 },                              // 151 — tin bị gỡ khỏi nhóm
+    xm: { trang: 0 },                               // 149 — hàng đợi xác minh selfie
     solieu: { ngay: 30 },
     pt: { ngay: 30 },
+    // 167 — Chân dung người dùng: bộ lọc + hai chiều của bảng chéo. `nen` = kết quả KHÔNG lọc gần nhất (danh sách nước / ngôn ngữ).
+    cd: { quoc_gia: [], tuoi: [], vai_tro: [], dang_nguoi: [], tinh_trang: [], dang_tim: [], ngon_ngu: [], hoat_dong: 'all', dang_ky: 'all',
+      plus: 'all', xac_minh: 'all', noi_bo: false, ca_bi_khoa: false, cheo_a: 'quoc_gia', cheo_b: 'vai_tro', kieu: 'hang', moThem: false, nen: null },
+    // 168 — Doanh thu: kỳ + bộ lọc. kieu = biểu đồ theo tiền ('tien') hay số giao dịch ('gd').
+    dt: { ngay: 30, moi_truong: 'PRODUCTION', cua_hang: '', san_pham: '', quoc_gia: '', kieu: 'tien' },
     nuoc: null,
   };
   const TRANG = 30;
@@ -544,8 +604,10 @@
 
   function veNav() {
     const g = nhomCua(state.nhom);
-    $('#gnav').innerHTML = NHOM.map((n) => `<button class="tab" role="tab" data-nhom="${n.k}" aria-selected="${n.k === state.nhom}">${esc(t(n.ten))}${n.badge ? ` <span class="badge" id="${n.badge}" hidden></span>` : ''}</button>`).join('');
+    $('#gnav').innerHTML = NHOM.map((n) => `${n.muc ? `<div class="gsec" role="presentation">${esc(t(n.muc))}</div>` : ''}<button class="tab" role="tab" data-nhom="${n.k}" aria-selected="${n.k === state.nhom}">${ICON[n.k] || ''}<span class="tab-t">${esc(t(n.ten))}</span>${n.badge ? ` <span class="badge" id="${n.badge}" hidden></span>` : ''}</button>${n.k === state.nhom && n.subs.length
+      ? `<div class="gsubs" role="group">${n.subs.map(([k, l]) => `<button class="gsub" data-gsub="${k}" aria-current="${k === state.sub}">${esc(t(l))}</button>`).join('')}</div>` : ''}`).join('');
     $('#gnav').querySelectorAll('[data-nhom]').forEach((b) => b.addEventListener('click', () => nav(b.dataset.nhom)));
+    $('#gnav').querySelectorAll('[data-gsub]').forEach((b) => b.addEventListener('click', () => nav(state.nhom + '/' + b.dataset.gsub)));
     const sn = $('#snav');
     sn.hidden = !g.subs.length;
     sn.innerHTML = g.subs.map(([k, l]) => `<button class="chip" data-sub="${k}" aria-pressed="${k === state.sub}">${esc(t(l))}</button>`).join('');
@@ -559,7 +621,23 @@
       const r = $('#badgeReports');
       const n = (s.reports_open || 0) + (s.photos_pending || 0);
       if (r) { r.hidden = !(n > 0); r.textContent = n; }
+      document.title = (n > 0 ? `(${n}) ` : '') + t('Quản trị') + ' · HIMO';   // rà soát 15/11: thấy việc chờ khi thẻ ở nền
     } catch (e) { /* im lặng */ }
+    badgeSuKien();
+  }
+  /** 151: sự kiện cần xử lý (chờ duyệt + bị ẩn + bị báo cáo). Máy chủ chưa có 151 hoặc vai trò không xem được → thôi hẳn, im lặng. */
+  let coBadgeSuKien = true;
+  async function badgeSuKien() {
+    if (!coBadgeSuKien) return;
+    try {
+      const d = await rpc('admin_su_kien_ds', { p_loc: 'can_xu_ly', p_q: null, p_limit: 1, p_offset: 0 });
+      const k = (d && d.dem) || {};
+      const n = (Number(k.cho_duyet) || 0) + (Number(k.an) || 0) + (Number(k.bao_cao) || 0);
+      const b = $('#badgeNoiDung');
+      if (b) { b.hidden = !(n > 0); b.textContent = n; b.title = t('Sự kiện cần xử lý'); }
+    } catch (e) {
+      if (laChuaCo(e) || /forbidden/.test((e && e.message) || '')) coBadgeSuKien = false;
+    }
   }
 
   /** Bộ khung chung: tiêu đề + phần thân, để mọi màn hình trông giống nhau. */
@@ -588,6 +666,8 @@
   // hết; yêu cầu đến trong lúc đó được gộp thành MỘT lượt vẽ lại ngay sau, đọc địa chỉ (#…) lúc đó. Lượt treo quá 20 giây thì
   // không chặn lượt mới nữa (mạng hỏng): lượt treo vẫn chỉ ghi được vào #main cũ nếu showLogin đã thay #main.
   let dangVe = null, dangVeTu = 0, veLai = false;
+  // rà soát 15/11: nút "Tải lại" trong thông báo lỗi chỉ vẽ lại (location.reload() thu hồi phiên ở pagehide)
+  document.addEventListener('himo-tai-lai', () => { render(); });
   function render() {
     if (dangVe && Date.now() - dangVeTu < 20_000) { veLai = true; return dangVe; }
     const p = (async () => {
@@ -608,9 +688,12 @@
       else if (state.nhom === 'antoan') {
         if (state.sub === 'baocao') await renderReports(main);
         else if (state.sub === 'anh') await renderPhotos(main);
+        else if (state.sub === 'bangchung') await renderBangChung(main);
+        else if (state.sub === 'xacminh') await renderXacMinh(main);
+        else if (state.sub === 'quetstory') await renderQuetStory(main);
         else await renderAnToan(main);
       } else if (state.nhom === 'nguoidung') await renderUsers(main);
-      else if (state.nhom === 'noidung') await renderNoiDung(main);
+      else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : renderNoiDung(main));
       else if (state.nhom === 'solieu') await renderSoLieu(main);
       else if (state.nhom === 'phantich') await renderPhanTich(main);
       else await renderHeThong(main);
@@ -645,7 +728,9 @@
     if (!$('#modalScrim').hidden) return false;
     if (state.id) return false;
     // Bảng Chiến lược / Chuyên sâu dùng để đọc và suy nghĩ: không tự vẽ lại giữa chừng. Vận hành thì có.
-    if (state.nhom === 'phantich' && state.sub !== 'vanhanh') return false;
+    if (state.nhom === 'phantich' && state.sub !== 'vanhanh' && state.sub !== 'chandung') return false;
+    // Quét Story có video đang phát; danh sách nước có ô nhập đang gõ dở: đừng vẽ lại giữa chừng.
+    if ((state.nhom === 'antoan' && state.sub === 'quetstory') || (state.nhom === 'hethong' && state.sub === 'nuoc')) return false;
     const a = document.activeElement;
     if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return false;
     return true;
@@ -676,6 +761,9 @@
     showLogin(t('Đã tự đăng xuất vì bạn không dùng trang trong 30 phút.'));
   }
 
+  // Nút ↻ trên đầu trang: tải lại số liệu ngay (các bảng Chiến lược / Chuyên sâu không tự làm mới — bấm nút này).
+  $('#lamMoi').addEventListener('click', () => { autoRefresh(true); });
+
   function startAuto() {
     clearInterval(autoTimer); clearInterval(freshTimer);
     chamCuoi = Date.now();
@@ -692,9 +780,11 @@
   // Một màn hình duy nhất trả lời: hôm nay có gì phải làm ngay, và app đang
   // lớn lên hay đứng yên. Bấm vào ô nào là nhảy thẳng vào nhóm đó.
   async function renderTongQuan(main) {
-    main.innerHTML = dangTai;
-    const [s, sf, g] = await Promise.all([
+    if (!main.querySelector('#tqGoc')) main.innerHTML = dangTai;      // tự làm mới mỗi phút: giữ màn hình tới khi có số mới
+    const [s, sf, g, cd, dthu] = await Promise.all([
       rpc('admin_stats', { p_days: 14 }), rpc('admin_safety'), rpc('admin_growth', { p_days: 14 }),
+      rpc('admin_pt_chan_dung', { p_loc: {} }).catch(() => null),     // 167: máy chủ chưa có → không hiện thẻ "Người dùng là ai"
+      rpc('admin_doanh_thu', { p_loc: { ngay: 30, tz: muiGio() } }).catch(() => null),   // 168: chưa có / không có quyền → không hiện khối Doanh thu
     ]);
     const sla = sf.sla || {}; const hn = g.hom_nay || {};
     const canhBao = [];
@@ -706,22 +796,37 @@
     if (tongAnh > 0) canhBao.push({ m: 'warn', t: `${tongAnh} ${dem(tongAnh, 'ảnh đang chờ duyệt')}`, p: choAnh.gio_lau_nhat ? `${t('Cái lâu nhất đã chờ')} ${Math.round(choAnh.gio_lau_nhat)} ${t('giờ.')}` : '', go: 'antoan/anh' });
     if (!canhBao.length) canhBao.push({ m: 'ok', t: `${t('Không có việc gấp')}`, p: `${t('Mọi báo cáo đã đóng, hàng chờ ảnh trống.')}`, go: 'antoan/baocao' });
 
-    const o = [
+    const viec = [
       { v: so(s.reports_open), l: dem(s.reports_open, 'báo cáo đang chờ'), alert: sla.qua_24h > 0, go: 'antoan/baocao' },
       { v: so(tongAnh), l: dem(tongAnh, 'ảnh chờ duyệt'), go: 'antoan/anh' },
+      { v: so((s.suspended || 0) + (s.banned || 0)), l: `${t('đang bị khoá (')}${s.suspended} ${t('tạm ·')} ${s.banned} ${t('vĩnh viễn)')}`, go: 'antoan/phat' },
+    ];
+    const o = [
       { v: so(hn.tong), l: dem(hn.tong, 'người dùng'), go: 'nguoidung' },
       { v: so(hn.dau), l: dem(hn.dau, 'hoạt động hôm nay'), go: 'solieu/tangtruong' },
       { v: so(hn.moi_7d), l: dem(hn.moi_7d, 'đăng ký 7 ngày qua'), go: 'solieu/tangtruong' },
       { v: so(s.messages_24h), l: dem(s.messages_24h, 'tin nhắn 24 giờ qua') },
       { v: so(s.posts_total), l: dem(s.posts_total, 'bài đã duyệt'), go: 'noidung/bai' },
-      { v: so((s.suspended || 0) + (s.banned || 0)), l: `${t('đang bị khoá (')}${s.suspended} ${t('tạm ·')} ${s.banned} ${t('vĩnh viễn)')}`, go: 'antoan/phat' },
     ];
+    const oVe = (ds) => `<div class="tiles">${ds.map((x) => `<div class="tile${x.alert ? ' alert' : ''}" ${x.go ? `style="cursor:pointer" data-go="${x.go}"` : ''}><div class="v">${x.v}</div><div class="l">${esc(x.l)}</div></div>`).join('')}</div>`;
+    const PT = window.HIMO_PT;
+    const ctxPt = { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc };
+    const laAi = PT && PT.chanDungTomTat ? PT.chanDungTomTat(cd, ctxPt) : '';
+    const khoiTien = PT && PT.doanhThuTomTat ? PT.doanhThuTomTat(dthu, ctxPt) : '';
     const series = s.series || [];
-    main.innerHTML = khung(`${t('Tổng quan')}`, `${t('Mọi thứ cần biết trong một màn hình. Bấm vào ô để đi thẳng tới nhóm việc.')}`, `
+    main.innerHTML = `<div class="stack" id="tqGoc" style="padding-top:14px">
+      <div><h1>${t('Tổng quan')}</h1><p class="sub">${t('Mọi thứ cần biết trong một màn hình. Bấm vào ô để đi thẳng tới nhóm việc.')}</p></div>
       ${canhBao.map((c) => `<div class="alertbar ${c.m}" data-go="${c.go}" style="cursor:pointer"><div><b>${esc(c.t)}</b>${c.p ? '<br>' + esc(c.p) : ''}</div></div>`).join('')}
-      <div class="tiles">${o.map((t) => `<div class="tile${t.alert ? ' alert' : ''}" ${t.go ? `style="cursor:pointer" data-go="${t.go}"` : ''}><div class="v">${t.v}</div><div class="l">${esc(t.l)}</div></div>`).join('')}</div>
+      <div class="sec lon"><h2>${t('Việc đang chờ')}</h2><span class="hint">${t('báo cáo và ảnh có hạn 24 giờ')}</span></div>
+      ${oVe(viec)}
+      <div class="sec lon"><h2>${t('Người dùng và hoạt động')}</h2><span class="hint">${t('con số lúc này')}</span></div>
+      ${oVe(o)}
+      ${khoiTien}
+      <div class="sec lon"><h2>${t('14 ngày qua')}</h2><span class="hint">${t('theo ngày')}</span></div>
       <div class="charts">${bieuDo(series, 'signups', `${t('Đăng ký mới')}`)}${bieuDo(series, 'active', `${t('Người hoạt động')}`)}${bieuDo(series, 'messages', `${t('Tin nhắn')}`)}${bieuDo(series, 'posts', `${t('Bài đăng')}`)}${bieuDo(series, 'reports', `${t('Báo cáo')}`)}</div>
-      <div class="hint">${t('Xử lý báo cáo trong 24 giờ là điều khoản dễ bị gỡ app nhất — xem quy trình ở')} <code>supabase/BAO-CAO.md</code>.</div>`);
+      ${laAi}
+      <div class="hint">${t('Xử lý báo cáo trong 24 giờ là điều khoản dễ bị gỡ app nhất — xem quy trình ở')} <code>supabase/BAO-CAO.md</code>.</div></div>`;
+    if (laAi && PT.chuGiai) PT.chuGiai(main);
     main.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => nav(el.dataset.go)));
   }
 
@@ -744,7 +849,7 @@
         <div class="filters" style="margin-bottom:10px">
           <select id="fStatus">${[['open', `${t('Đang mở')}`], ['reviewed', `${t('Đã xem')}`], ['actioned', `${t('Đã xử lý')}`], ['all', `${t('Mọi trạng thái')}`]].map(([k, l]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
           <select id="fReason"><option value="all">${t('Mọi lý do')}</option>${Object.entries(REASON).map(([k, l]) => `<option value="${k}" ${f.reason === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-          <select id="fKind"><option value="all">${t('Mọi loại')}</option>${['profile', 'post', 'comment', 'message', 'album', 'story', 'moment', 'group', 'group_poll', 'group_event', 'follow_request', 'message_request', 'unknown'].map((k) => `<option value="${k}" ${f.kind === k ? 'selected' : ''}>${KIND[k]}</option>`).join('')}</select>
+          <select id="fKind"><option value="all">${t('Mọi loại')}</option>${['profile', 'post', 'comment', 'message', 'album', 'story', 'moment', 'anh_tu_xoa', 'group', 'group_poll', 'group_event', 'follow_request', 'message_request', 'unknown'].map((k) => `<option value="${k}" ${f.kind === k ? 'selected' : ''}>${KIND[k]}</option>`).join('')}</select>
           <input id="fQ" placeholder="${t('Tên người, mô tả…')}" value="${esc(f.q)}" autocomplete="off">
         </div>
         <div class="list" id="repList"><div class="skeleton"></div><div class="skeleton"></div></div>
@@ -900,18 +1005,70 @@
   }
   const actionsList = (list) => (list || []).length ? `<details><summary class="hint" style="cursor:pointer">${t('Nhật ký xử lý (')}${list.length})</summary><div class="stack" style="gap:6px;margin-top:6px">${list.map((a) => `<div class="hint">${esc(fmtDate(a.created_at))} · <b>${esc(ACTION[a.action] || a.action)}</b>${a.admin ? ' · ' + esc(a.admin) : ''}${a.note ? '<br>' + esc(a.note) : ''}</div>`).join('')}</div></details>` : '';
 
-  function contentBlock(kind, c, snapshot) {
-    if (!c) return `<div class="quote" style="color:var(--soft)">${t('Nội dung không còn (đã bị gỡ hoặc xoá). Bản chụp lúc báo cáo:')}<br>${esc(snapshot || '—')}</div>`;
+  /** 151: tin thoại / video của tin bị báo cáo — lấy từ bằng chứng báo cáo (còn cả khi tin đã thu hồi), rồi tới chính tin. */
+  function tinMedia(ev, c) {
+    const lay = (k) => { const v = (ev && typeof ev === 'object' && ev[k]) || (c && c[k]); return typeof v === 'string' && v ? v : null; };
+    const a = lay('audio_path'), v = lay('video_path');
+    if (!a && !v) return '';
+    return `<div class="row" style="gap:8px;margin-top:6px">
+        ${a ? `<button class="btn sm" data-thoai="${esc(a)}">${t('Nghe tin thoại')}</button>` : ''}
+        ${v ? `<button class="btn sm" data-video="${esc(v)}">${t('Xem video')}</button>` : ''}</div>
+      ${a || v ? `<div class="hint">${t('Tin thoại, video và ảnh riêng của tin bị báo cáo cần lý do và phiên xác thực hai lớp; mỗi lần mở được ghi vào nhật ký quản trị.')}</div>` : ''}`;
+  }
+  const theMedia = (tag, url) => {
+    const e = document.createElement(tag);
+    e.controls = true; e.preload = 'metadata'; e.src = url;
+    if (tag === 'video') { e.playsInline = true; e.setAttribute('playsinline', ''); e.style.cssText = 'max-width:100%;max-height:420px;border-radius:10px;display:block'; }
+    else e.style.cssText = 'width:100%;max-width:420px;display:block';
+    return e;
+  };
+  /** 153 (B3, rà độc lập 11/11): tin thoại, video VÀ ảnh riêng của tin bị báo cáo đều mở qua admin_mo_anh (lý do + hai lớp +
+   *  nhật ký) — trước đây video mở thẳng bằng URL có chữ ký, không lý do, không nhật ký. Lý do hỏi MỘT lần cho mỗi lần xem báo cáo
+   *  (giữ trong khung này, mất khi khung vẽ lại). Ảnh bài đăng / bình luận công khai giữ như cũ (hydratePhotos). */
+  function noiMediaTin(root) {
+    let lyDoXem = null;
+    const xinLyDo = async (tieuDe) => { if (!lyDoXem) lyDoXem = await hoiLyDo(tieuDe); return lyDoXem; };
+    const gan = (sel, lay, tieuDe, ve, loiChu) => root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', async () => {
+      const pth = lay(b);
+      const lyDo = await xinLyDo(tieuDe); if (!lyDo) return;
+      b.disabled = true;
+      try {
+        const urls = await moAnhRieng([pth], lyDo);
+        if (urls[pth]) b.replaceWith(ve(urls[pth]));
+        else { b.disabled = false; toast(loiChu, true); }
+      } catch (e) { b.disabled = false; toast(friendly(e), true); }
+    }));
+    gan('[data-thoai]', (b) => b.dataset.thoai, t('Nghe tin thoại'), (u) => theMedia('audio', u), t('Không tải được tin thoại.'));
+    gan('[data-video]', (b) => b.dataset.video, t('Xem video'), (u) => theMedia('video', u), t('Không tải được video.'));
+    gan('[data-anhrieng]', (b) => b.dataset.anhrieng, t('Xem ảnh riêng'), (u) => {
+      const im = document.createElement('img');
+      im.className = 'photo'; im.alt = ''; im.src = u;
+      im.style.cssText = 'max-width:100%;max-height:420px;border-radius:10px;display:block';
+      return im;
+    }, t('Không tải được ảnh.'));
+  }
+
+  function contentBlock(kind, c, snapshot, ev) {
+    const tm = kind === 'message' ? tinMedia(ev, c) : '';
+    // 160: ảnh tự xoá — nội dung chỉ nằm ở bằng chứng (evidence.path); mở qua admin_mo_anh như ảnh riêng của tin nhắn
+    if (kind === 'anh_tu_xoa') {
+      const p = ev && ev.path;
+      // 161: ảnh đã mở được giữ 3 ngày kể từ lúc mở; báo cáo trong 3 ngày đó thì tệp thành bằng chứng và được giữ tiếp
+      return `<div class="hint">${t('Ảnh tự xoá')}${ev && ev.opened_at ? ` · ${t('mở lúc')} ${esc(fmtDate(ev.opened_at))}` : ` · ${t('chưa mở')}`}</div><div class="hint">${t('Ảnh đã mở được giữ 3 ngày kể từ lúc mở; báo cáo trong 3 ngày đó thì ảnh được giữ làm bằng chứng. Báo cáo muộn hơn có thể không còn ảnh.')}</div>${p ?`<button class="btn sm" data-anhrieng="${esc(p)}" style="margin-top:6px">${t('Xem ảnh riêng')}</button>` : `<div class="hint">${t('Không còn tệp.')}</div>`}`;
+    }
+    if (!c) return `<div class="quote" style="color:var(--soft)">${t('Nội dung không còn (đã bị gỡ hoặc xoá). Bản chụp lúc báo cáo:')}<br>${esc(snapshot || '—')}</div>${tm}`;
     const img = (p, full) => p ? `<img class="photo" data-photo="${esc(p)}" ${full ? 'data-full' : ''} data-zoom="${esc(p)}" title="${t('Bấm để xem to')}" alt="" style="opacity:0;transition:opacity .2s">` : '';
+    // 153 (B3): ảnh RIÊNG của tin nhắn / yêu cầu nhắn tin bị báo cáo — chỉ một nút; mở qua admin_mo_anh (noiMediaTin).
+    const anhRieng = (p) => p ? `<button class="btn sm" data-anhrieng="${esc(p)}" style="margin-top:6px">${t('Xem ảnh riêng')}</button>` : '';
     // Bài đăng và bình luận là nội dung công khai nên mở được trang chi tiết đầy đủ.
     const moRong = (k, id) => id ? `<div class="row" style="margin-top:8px"><a class="btn sm" href="#noidung/${k === 'post' ? 'bai' : 'binhluan'}/${id}">${t('Xem đầy đủ')} ${k === 'post' ? `${t('bài đăng')}` : `${t('bình luận')}`} →</a></div>` : '';
     if (kind === 'post') return `${img(c.image_path, true)}${c.caption ? `<div class="quote">${esc(c.caption)}</div>` : ''}<div class="hint">${t('Trạng thái:')} ${esc(c.status)}${c.moderation_reason ? ' · ' + esc(c.moderation_reason) : ''} · ${esc(fmtDate(c.created_at))}</div>${moRong('post', c.id)}`;
     if (kind === 'comment') return `<div class="quote">${esc(c.body)}</div><div class="hint">${t('Bình luận lúc')} ${esc(fmtDate(c.created_at))}${c.post_image ? ` ${t('dưới bài:')}` : ''}</div>${img(c.post_image)}${moRong('comment', c.id)}`;
-    if (kind === 'message') return `${c.recalled_at ? `<div class="quote" style="color:var(--soft)">${t('Tin đã bị thu hồi.')}</div>` : ''}${c.body ? `<div class="quote">${esc(c.body)}</div>` : ''}${img(c.image_path, true)}${c.lat != null ? `<div class="hint">${t('Vị trí chia sẻ:')} ${c.lat}, ${c.lng}</div>` : ''}<div class="hint">${t('Gửi lúc')} ${esc(fmtDate(c.created_at))}</div>`;
+    if (kind === 'message') return `${c.recalled_at ? `<div class="quote" style="color:var(--soft)">${t('Tin đã bị thu hồi.')}</div>` : ''}${c.body ? `<div class="quote">${esc(c.body)}</div>` : ''}${anhRieng(c.image_path)}${c.lat != null ? `<div class="hint">${t('Vị trí chia sẻ:')} ${esc(String(Number(c.lat)))}, ${esc(String(Number(c.lng)))}</div>` : ''}${tm}<div class="hint">${t('Gửi lúc')} ${esc(fmtDate(c.created_at))}</div>`;
     if (kind === 'album') return `${img(c.path, true)}<div class="hint">${t('Trạng thái:')} ${esc(c.status)}${c.moderation_reason ? ' · ' + esc(c.moderation_reason) : ''}</div>`;
     // 083: loại mới
     if (kind === 'group') return `${img(c.photo_path, true)}<div class="quote"><b>${esc(c.title || '')}</b>${c.description ? '<br>' + esc(c.description) : ''}</div><div class="hint">${esc(c.visibility || '')} · ${t('thành viên:')} ${esc(String(c.members ?? ''))}</div>`;
-    if (kind === 'message_request') return `${(c.messages || []).map((m) => `<div class="quote">${m.body ? esc(m.body) : ''}</div>${img(m.image_path, true)}`).join('') || `<div class="hint">${t('Không còn tin nào.')}</div>`}`;
+    if (kind === 'message_request') return `${(c.messages || []).map((m) => `<div class="quote">${m.body ? esc(m.body) : ''}</div>${anhRieng(m.image_path)}`).join('') || `<div class="hint">${t('Không còn tin nào.')}</div>`}`;
     if (kind === 'story') return `${c.removed ? `<div class="quote" style="color:var(--soft)">${t('Story đã bị gỡ.')}</div>` : ''}${(c.media || []).map((p) => img(p, true)).join('')}${(c.texts || []).length ? `<div class="quote">${c.texts.map(esc).join('<br>')}</div>` : ''}<div class="hint">${t('Đăng lúc')} ${esc(fmtDate(c.created_at))} · ${t('đối tượng:')} ${esc(c.audience || '')}${c.active ? ` · <b>${t('đang hiển thị')}</b>` : ''}</div>`;
     if (kind === 'moment') return `<div class="quote"><b>${esc(c.title || '')}</b></div>${(c.covers || []).map((p) => img(p, false)).join('')}<div class="hint">${t('đối tượng:')} ${esc(c.audience || '')} · ${esc(String(c.items ?? 0))} story</div>`;
     if (kind === 'group_poll' || kind === 'group_event' || kind === 'follow_request') return `<div class="quote">${esc(snapshot || '—')}</div>`;
@@ -925,12 +1082,15 @@
     const d = await goiNhayCam('admin_report_detail', { p_id: state.id });
     if (!d) { pane.innerHTML = `<div class="card">${t('Không mở được báo cáo — cần xác thực hai lớp hoặc vai trò không đủ quyền.')}</div>`; return; }
     const r = d.report; const open = r.status === 'open';
+    // rà soát 15/11 (tạm, tới khi SQL 166 sửa loại): máy chủ xếp báo cáo ảnh tự xoá vào 'message' → dùng target_type
+    if (r.target_type === 'anh_tu_xoa') r.kind = 'anh_tu_xoa';
+    const khan = r.priority === 1;
     // Người bị báo cáo có thể đã xoá tài khoản (reports.reported_id thành NULL).
     // Phải giữ nguyên null để userCard biết mà báo "đã xoá" và các nút phạt tắt đi.
     const u = d.reported || null;
     const canAct = !!(u && !u.deleted && !u.is_admin && u.id);
     // 066: báo cáo cũ không xác định được thứ bị báo cáo → không cho "Gỡ" (máy chủ cũng từ chối).
-    const canRemove = canAct && r.kind !== 'unknown' && r.kind !== 'group';   // 083: chưa gỡ riêng được cả nhóm
+    const canRemove = canAct && r.kind !== 'unknown' && r.kind !== 'group' && r.kind !== 'anh_tu_xoa';   // 160: ảnh tự xoá tự biến mất — không có gì để gỡ   // 083: chưa gỡ riêng được cả nhóm
     pane.innerHTML = `
       <button class="btn ghost sm sheet-close" id="paneClose">${t('← Danh sách')}</button>
       <div class="stack">
@@ -940,9 +1100,12 @@
             <dt>${t('Lý do')}</dt><dd><b>${esc(REASON[r.reason] || r.reason)}</b>${r.details ? ' — ' + esc(r.details) : ''}</dd>
             <dt>${t('Báo cáo lúc')}</dt><dd>${esc(fmtDate(r.created_at))} (${esc(ago(r.created_at))})${open && hoursOpen(r.created_at) >= 18 ? ` <b style="color:var(--danger)">${t('sắp quá 24 giờ')}</b>` : ''}</dd>
             <dt>${t('Người báo cáo')}</dt><dd>${d.reporter ? `<a href="#nguoidung/${d.reporter.id}">${esc(d.reporter.display_name)}</a> ${t('· đã gửi')} ${d.reporter.reports_made} ${t('báo cáo')}` : '—'}</dd>
+            ${r.giu_phap_ly_den ? `<dt>${t('Giữ theo pháp lý')}</dt><dd><b>${t('tới')} ${esc(fmtDate(r.giu_phap_ly_den))}</b>${r.so_ncmec ? ` · ${t('số tham chiếu')}: ${esc(r.so_ncmec)}` : ''}</dd>` : ''}
             ${!open ? `<dt>${t('Kết quả')}</dt><dd>${esc(r.resolution || '')}${r.resolved_by ? ' · ' + esc(r.resolved_by) : ''} · ${esc(fmtDate(r.resolved_at))}${r.admin_note ? '<br>' + esc(r.admin_note) : ''}</dd>` : ''}
           </dl>
-          ${contentBlock(r.kind, d.content, r.snapshot)}
+          ${khan ? `<div class="hint" style="color:var(--danger)">${t('Báo cáo khẩn: ảnh / video được làm mờ — chạm để xem.')}</div>` : ''}
+          <div id="noiDungBC" class="${khan ? 'mo-khan' : ''}">${contentBlock(r.kind, d.content, r.snapshot, r.evidence)}</div>
+          ${r.kind === 'group' ? '<div id="nhomSuKien"></div>' : ''}
           ${r.snapshot && d.content ? `<details><summary class="hint" style="cursor:pointer">${t('Bản chụp lúc báo cáo')}</summary><div class="quote" style="margin-top:6px">${esc(r.snapshot)}</div></details>` : ''}
           ${r.evidence ? `<details><summary class="hint" style="cursor:pointer">${t('Bằng chứng lưu kèm báo cáo')}${r.evidence_until ? ` (${t('giữ tới')} ${esc(fmtDate(r.evidence_until))})` : ''}</summary><pre class="quote" style="margin-top:6px;white-space:pre-wrap">${esc(JSON.stringify(r.evidence, null, 2))}</pre></details>` : ''}
         </div>
@@ -953,22 +1116,60 @@
             <button class="btn" data-act="warn" ${canAct ? '' : 'disabled'}>${t('Gỡ + cảnh cáo')}<small>${t('Họ thấy lời cảnh cáo khi mở app')}</small></button>
             <button class="btn" data-act="suspend" ${canAct ? '' : 'disabled'}>${t('Gỡ + tạm khoá')}<small>${t('Văng khỏi app trong N ngày')}</small></button>
             <button class="btn danger" data-act="ban" ${canAct ? '' : 'disabled'}>${t('Gỡ + khoá vĩnh viễn')}<small>${t('Giữ dữ liệu làm bằng chứng')}</small></button>
-            <button class="btn danger" data-act="delete" ${canAct ? '' : 'disabled'}>${t('Xoá tài khoản')}<small>${t('Xoá hẳn mọi dữ liệu')}</small></button>
+            <button class="btn danger" data-act="delete" ${canAct && !khan ? '' : 'disabled'}>${t('Xoá tài khoản')}<small>${khan ? t('Báo cáo khẩn: khoá để giữ bằng chứng, không xoá') : t('Xoá hẳn mọi dữ liệu')}</small></button>
           </div>
           ${r.kind === 'group' ? `<div class="actions"><button class="btn danger" id="goNhom" ${(r.target_id || (d.content && d.content.id)) ? '' : 'disabled'}>${t('Gỡ ảnh, mô tả và nội quy của nhóm')}<small>${t('Giữ tên nhóm, thành viên và tin nhắn')}</small></button></div>
           <div class="hint">${t('Cần bản vá 089 trên máy chủ. Muốn xử lý cả người chịu trách nhiệm (chủ nhóm) thì dùng các nút tài khoản.')}</div>` : ''}
           ${r.kind === 'unknown' ? `<div class="hint" style="color:var(--warn, inherit)">${t('Báo cáo cũ: không xác định được nội dung bị báo cáo, nên nút Gỡ bị tắt. Các nút còn lại chỉ xử lý tài khoản.')}</div>` : ''}
           <div class="hint">${t('Khoá hay xoá thì mọi báo cáo đang mở về người này cũng được đóng luôn. Nghi ngờ dưới 18 tuổi hoặc tội phạm: khoá (giữ bằng chứng), đừng xoá.')}</div>
         </div>` : ''}
+        <div class="card stack" style="gap:8px"><h2>${t('Giữ bằng chứng (pháp lý)')}</h2>
+          <div class="hint">${t('Dùng khi nghi nội dung xâm hại trẻ em hoặc có yêu cầu của cơ quan có thẩm quyền: bằng chứng của báo cáo được giữ 1 năm kể từ lúc bấm (bấm lại để gia hạn), không bị dọn sau 90 ngày. Việc này được ghi nhật ký.')}</div>
+          <div class="actions"><button class="btn" id="giuBC">${r.giu_phap_ly_den ? t('Gia hạn giữ thêm 1 năm') : t('Giữ bằng chứng 1 năm')}</button></div>
+        </div>
         <div><div class="hint" style="margin:0 0 6px 2px">${t('Người bị báo cáo')}</div>${userCard(u, { posts: true })}</div>
       </div>`;
     $('#paneClose', pane).addEventListener('click', () => nav('antoan/baocao'));
+    const gb = $('#giuBC', pane); if (gb) gb.addEventListener('click', () => giuBangChung(r));
     pane.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => resolveReport(r, u, b.dataset.act)));
     const gn = $('#goNhom', pane); if (gn) gn.addEventListener('click', () => goNhom(r, d));
-    hydratePhotos(pane); noiXemAnh(pane);
+    const mo = $('#noiDungBC', pane);
+    if (mo && mo.classList.contains('mo-khan')) mo.addEventListener('click', (e) => { if (!mo.classList.contains('mo-khan')) return; e.preventDefault(); e.stopPropagation(); mo.classList.remove('mo-khan'); }, true);
+    hydratePhotos(pane); noiXemAnh(pane); noiMediaTin(pane);
+    if (r.kind === 'group') veNhomSuKien($('#nhomSuKien', pane), r.target_id || (d.content && d.content.id));
+  }
+
+  /** 151: nhóm bị báo cáo là nhóm chat của một sự kiện → ghi rõ và dẫn tới sự kiện. Lỗi / không thuộc sự kiện nào → im lặng. */
+  async function veNhomSuKien(el, conv) {
+    if (!el || !conv) return;
+    let d = null;
+    try { d = await rpc('admin_nhom_su_kien', { p_conv: conv }); } catch (e) { d = null; }
+    if (!d || !d.su_kien_id || !el.isConnected) return;
+    const tc = d.to_chuc || {};
+    el.innerHTML = `<div class="hint">${t('Nhóm chat của sự kiện')}: <a href="#noidung/sukien/${esc(d.su_kien_id)}">${esc(d.tieu_de || '—')}</a>${tc.id ? ` · ${t('người tổ chức')} <a href="#nguoidung/${esc(tc.id)}">${esc(tc.ten || '?')}</a>` : ''}</div>`;
   }
 
   let dangGui = false;
+  /** 166d: giữ bằng chứng của một báo cáo theo pháp lý (moderate + lý do + hai lớp + nhật ký ở máy chủ). */
+  async function giuBangChung(r) {
+    if (dangGui) return;
+    const ans = await confirmAction({ title: t('Giữ bằng chứng (pháp lý)'), text: t('Bằng chứng của báo cáo này được giữ 1 năm kể từ bây giờ. Ghi số tham chiếu nếu có (ví dụ số báo cáo NCMEC) — có thể để trống và bổ sung sau.'), noteLabel: t('Số tham chiếu (có thể để trống)'), okLabel: t('Tiếp') });
+    if (!ans) return;
+    const so = (ans.note || '').trim();
+    if (so.length > 60) { toast(t('Số tham chiếu tối đa 60 ký tự.'), true); return; }
+    const lyDo = await hoiLyDoViec(t('Giữ bằng chứng (pháp lý)'), t('Ghi lý do giữ (vụ việc, cơ quan yêu cầu). Lý do được lưu vào nhật ký quản trị.'), t('Giữ bằng chứng'));
+    if (!lyDo) return;
+    dangGui = true;
+    try {
+      const k = await goiNhayCam('admin_bao_cao_giu', { p_id: r.id, p_so_ncmec: so || null, p_ly_do: lyDo });
+      if (k) {
+        toast(k.con_bang_chung === false ? t('Đã ghi hạn giữ — nhưng bằng chứng của báo cáo này đã bị dọn từ trước.') : `${t('Đã giữ bằng chứng tới')} ${fmtDate(k.giu_phap_ly_den)}`, k.con_bang_chung === false);
+        await render();
+      }
+    } catch (e) {
+      toast(e && (e.code === 'PGRST202' || e.code === '42883') ? t('Máy chủ chưa có bản vá 166 — chưa giữ được.') : friendly(e), true);
+    } finally { dangGui = false; }
+  }
   // 089: gỡ ảnh, mô tả, nội quy, câu hỏi của một nhóm (máy chủ ghi nhật ký, đóng báo cáo đang mở về nhóm đó)
   async function goNhom(r, d) {
     if (dangGui) return;
@@ -1001,7 +1202,7 @@
     const ans = await confirmAction(cfgs[act]); if (!ans) return;
     dangGui = true;
     try {
-      await rpc('admin_resolve_report', { p_id: r.id, p_action: act, p_note: ans.note || null, p_days: ans.days });
+      await rpcHaiLop('admin_resolve_report', { p_id: r.id, p_action: act, p_note: ans.note || null, p_days: ans.days });
       toast(t('Đã xử lý') + ': ' + (ACTION['report:' + act] || act));
       // Xoá tài khoản xong thì báo cáo trỏ vào một hồ sơ không còn — về danh sách.
       if (act === 'delete') nav('antoan/baocao'); else await render();
@@ -1124,6 +1325,220 @@
     hydratePhotos(grid); noiXemAnh(grid);
   }
 
+  // ---------------------------------------------------------------- TIN BỊ GỠ KHỎI NHÓM (119 / 137 / 151)
+  // Chủ nhóm / quản trị nhóm gỡ một tin vi phạm → nội dung vào group_message_evidence (giữ 180 ngày). Danh sách KHÔNG kèm
+  // nội dung; mở nội dung qua admin_group_evidence (lý do + xác thực hai lớp + nhật ký, cấp quyền xem tệp 15 phút).
+  /** Hàm có trên máy chủ nhưng chưa được mở cho trang quản trị (chưa vào danh sách trắng api_functions) hoặc chưa có. */
+  const laChuaMo = (e) => laChuaCo(e) || /permission denied for function/i.test((e && e.message) || '');
+  /** Tin gồm những gì: biểu tượng kèm chữ (biểu tượng aria-hidden — trình đọc màn hình đọc chữ). */
+  const bieuTuongTin = (r) => [[r.co_chu, '💬', t('chữ')], [r.co_anh, '🖼', t('ảnh')], [r.co_video, '🎬', t('video')], [r.co_thoai, '🎙', t('thoại')], [r.co_vi_tri, '📍', t('vị trí')]]
+    .filter((x) => x[0]).map(([, i, l]) => `<span class="tag"><span aria-hidden="true">${i}</span>${esc(l)}</span>`).join('');
+  const nguoiLink = (p) => (p && p.id ? `<a href="#nguoidung/${esc(p.id)}">${esc(p.ten || '?')}</a>` : esc(t('Tài khoản đã xoá')));
+
+  async function renderBangChung(main) {
+    const f = state.bcn;
+    main.innerHTML = dangTai;
+    const phu = t('Tin mà chủ nhóm hoặc quản trị nhóm đã gỡ vì vi phạm. Máy chủ giữ nội dung làm bằng chứng 180 ngày. Danh sách không kèm nội dung; mở nội dung cần lý do và phiên xác thực hai lớp, và mỗi lần mở được ghi vào nhật ký quản trị.');
+    let d;
+    try { d = await rpc('admin_bang_chung_nhom_ds', { p_conv: null, p_limit: TRANG, p_offset: f.trang * TRANG }); }
+    catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Tin bị gỡ khỏi nhóm'), esc(phu), canBanVa151()); return; } throw e; }
+    const rows = (d && d.rows) || []; const tong = Number(d && d.tong) || 0;
+    main.innerHTML = khung(t('Tin bị gỡ khỏi nhóm'), esc(phu), `
+      <div class="list card" id="bcnList" style="padding:4px 12px">${rows.length ? rows.map((r) => `
+        <div class="item" style="cursor:default">
+          <span class="t">
+            <span class="n">${esc(r.nhom || t('Nhóm không tên'))}${r.su_kien_id ? ` <a class="tag accent" href="#noidung/sukien/${esc(r.su_kien_id)}">${t('Nhóm chat sự kiện')}</a>` : ''} ${bieuTuongTin(r)}</span>
+            <span class="s" style="display:block;white-space:normal">${t('Người gửi')}: ${nguoiLink(r.nguoi_gui)} · ${t('Người gỡ')}: ${nguoiLink(r.nguoi_go)}</span>
+            ${r.ly_do ? `<span class="s" style="display:block;white-space:normal">${t('Lý do')}: ${esc(r.ly_do)}</span>` : ''}
+            <span class="m" style="display:block;white-space:normal">${t('Gỡ lúc')} ${esc(fmtDate(r.go_luc))} · ${t('giữ tới')} ${esc(fmtNgay(r.giu_toi))}${r.gui_luc ? ` · ${t('gửi lúc')} ${esc(fmtDate(r.gui_luc))}` : ''}</span>
+          </span>
+          <button class="btn sm" data-mo="${esc(r.message_id)}">${t('Mở nội dung')}</button>
+        </div>`).join('') : `<div class="empty">${t('Chưa có tin nào bị gỡ khỏi nhóm trong 180 ngày qua.')}</div>`}</div>
+      <div class="pager" id="bcnPager"></div>`);
+    main.querySelectorAll('[data-mo]').forEach((b) => b.addEventListener('click', () => moBangChung(rows.find((r) => r.message_id === b.dataset.mo) || { message_id: b.dataset.mo })));
+    pager($('#bcnPager'), tong, f.trang, (n) => { f.trang = n; render(); });
+  }
+
+  // ---------------------------------------------------------------- XÁC MINH SELFIE (149)
+  // Hàng đợi: selfie + tư thế được giao + ảnh đại diện HIỆN TẠI. Danh sách không kèm ảnh; xem ảnh qua admin_mo_anh (lý do + xác thực
+  // hai lớp + nhật ký, quyền xem 10 phút). Duyệt / từ chối / thu hồi: quyền "moderate" + xác thực hai lớp, ghi nhật ký.
+  const TU_THE_XM = { quay_trai: 'Quay mặt sang trái', quay_phai: 'Quay mặt sang phải', ngang_len: 'Ngẩng mặt lên', cui_xuong: 'Cúi mặt xuống',
+    nghieng_dau: 'Nghiêng đầu', cuoi: 'Cười', ha_mieng: 'Há miệng' };
+  const LY_DO_XM = [['khong_khop', 'Không khớp ảnh đại diện'], ['anh_chup_anh', 'Ảnh chụp lại ảnh / màn hình'], ['khong_ro', 'Ảnh mờ / tối'],
+    ['sai_tu_the', 'Sai tư thế'], ['nhieu_nguoi', 'Nhiều người trong ảnh'], ['gia_mao', 'Giả mạo danh tính (giữ selfie 1 năm)'], ['khac', 'Lý do khác']];
+  const canBanVa149 = () => `<div class="alertbar warn"><div><b>${t('Cần bản vá 149 trên máy chủ')}</b><br>${t('Áp supabase/149-xac-minh.sql trong SQL Editor. Các mục khác vẫn dùng bình thường.')}</div></div>`;
+  const LOI_XM = { da_xu_ly: t('Lần thử này đã được xử lý.'), can_anh: t('Ảnh đại diện chưa được duyệt — duyệt ảnh trước.'), khong_thay: t('Không tìm thấy lần thử này.'),
+    forbidden: t('Bạn không có quyền kiểm duyệt.') };
+
+  async function renderXacMinh(main) {
+    const f = state.xm;
+    main.innerHTML = dangTai;
+    const phu = t('Người dùng chụp selfie theo một tư thế để nhận huy hiệu “Đã xác minh”. So selfie với ảnh đại diện hiện tại rồi duyệt hoặc từ chối. Danh sách không kèm ảnh; mỗi lần mở ảnh cần lý do và được ghi vào nhật ký quản trị.');
+    let d;
+    try { d = await rpc('admin_xac_minh_cho_duyet', { p_limit: TRANG, p_offset: f.trang * TRANG }); }
+    catch (e) { if (laChuaMo(e)) { main.innerHTML = khung(t('Xác minh selfie'), esc(phu), canBanVa149()); return; } throw e; }
+    const rows = (d && d.rows) || []; const tong = Number(d && d.tong) || 0;
+    const cheDo = d && d.che_do === 'tu_dong' ? t('Tự động (có nhà cung cấp)') : d && d.che_do === 'tat' ? t('Tắt') : t('Thủ công');
+    main.innerHTML = khung(t('Xác minh selfie'), esc(phu), `
+      <div class="hint" style="margin-bottom:8px">${t('Chế độ')}: <b>${esc(cheDo)}</b> · ${t('Đang chờ')}: <b>${so(tong)}</b></div>
+      <div class="list card" id="xmList" style="padding:4px 12px">${rows.length ? rows.map((r) => `
+        <div class="item" style="cursor:default">
+          <span class="t">
+            <span class="n">${nguoiLink(r.nguoi)}${r.ly_do === 'doi_anh' ? ` <span class="tag warn">${t('Đổi ảnh đại diện — so lại')}</span>` : ''}</span>
+            <span class="s" style="display:block;white-space:normal">${t('Tư thế được giao')}: ${esc(t(TU_THE_XM[r.tu_the] || r.tu_the))}${r.diem != null ? ` · ${t('Điểm tự động')}: ${esc(String(r.diem))}` : ''} · ${t('Lần thử trong 30 ngày')}: ${so(r.lan_30_ngay)}</span>
+            <span class="m" style="display:block;white-space:normal">${t('Nộp lúc')} ${esc(fmtDate(r.nop_luc))}</span>
+          </span>
+          <button class="btn sm" data-xm="${esc(r.id)}">${t('So ảnh')}</button>
+        </div>`).join('') : `<div class="empty">${t('Không có selfie nào đang chờ duyệt.')}</div>`}</div>
+      <div class="pager" id="xmPager"></div>
+      <div class="card" style="margin-top:12px;padding:12px">
+        <b>${t('Thu hồi huy hiệu')}</b>
+        <div class="row" style="gap:8px;margin-top:8px"><input id="xmUser" placeholder="${t('Mã người dùng (uuid)')}" style="flex:1"><button class="btn sm danger" id="xmThuHoi">${t('Thu hồi')}</button></div>
+      </div>`);
+    main.querySelectorAll('[data-xm]').forEach((b) => b.addEventListener('click', () => soAnhXacMinh(rows.find((r) => r.id === b.dataset.xm))));
+    pager($('#xmPager'), tong, f.trang, (n) => { f.trang = n; render(); });
+    $('#xmThuHoi').onclick = async () => {
+      const u = ($('#xmUser').value || '').trim();
+      if (!/^[0-9a-f-]{36}$/i.test(u)) { toast(t('Mã người dùng không hợp lệ.'), true); return; }
+      const lyDo = await hoiLyDoViec(t('Thu hồi huy hiệu xác minh'), t('Người dùng được báo trong app. Selfie giữ 30 ngày rồi xoá.'), t('Thu hồi'), true); if (!lyDo) return;
+      const k = await goiNhayCam('admin_xac_minh_thu_hoi', { p_user: u, p_ly_do: lyDo }, LOI_XM); if (!k) return;
+      toast(t('Đã thu hồi huy hiệu.')); render();
+    };
+  }
+
+  async function soAnhXacMinh(r) {
+    if (!r) return;
+    const lyDo = await hoiLyDo(t('So selfie xác minh với ảnh đại diện')); if (!lyDo) return;
+    const urls = await moAnhRieng([r.selfie, r.anh_dai_dien].filter(Boolean), lyDo);
+    const uS = urls[r.selfie], uA = urls[r.anh_dai_dien];
+    modalRong(`<h2>${t('So selfie xác minh với ảnh đại diện')}</h2>
+      <p>${t('Đã ghi nhật ký. Quyền xem ảnh hết hạn sau 10 phút.')} ${t('Tư thế được giao')}: <b>${esc(t(TU_THE_XM[r.tu_the] || r.tu_the))}</b></p>
+      <div class="row" style="gap:12px;align-items:flex-start">
+        <div style="flex:1"><div class="hint">${t('Selfie')}</div><div id="xmS"></div>${uS ? '' : `<div class="hint">${t('Không tải được tệp')}</div>`}</div>
+        <div style="flex:1"><div class="hint">${t('Ảnh đại diện hiện tại')}</div><div id="xmA"></div>${uA ? '' : `<div class="hint">${t('Không tải được tệp')}</div>`}</div>
+      </div>
+      <p class="hint">${t('Chỉ duyệt khi cùng một người, đúng tư thế, và là ảnh chụp trực tiếp (không phải ảnh chụp lại ảnh hay màn hình).')}</p>
+      <div class="row" style="gap:8px;margin-top:8px"><select id="xmLyDo">${LY_DO_XM.map(([v, l]) => `<option value="${v}">${esc(t(l))}</option>`).join('')}</select></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn ghost" id="mCancel">${t('Đóng')}</button>
+        <button class="btn danger" id="xmTuChoi">${t('Từ chối')}</button>
+        <button class="btn" id="xmDat">${t('Duyệt')}</button>
+      </div>`, (m) => {
+      $('#mCancel', m).onclick = () => closeModal();
+      for (const [id, u] of [['#xmS', uS], ['#xmA', uA]]) { if (u) { const img = document.createElement('img'); img.className = 'anh-rieng'; img.alt = ''; img.src = u; $(id, m).appendChild(img); } }
+      let dangQuyet = false;   // rà soát 15/11: bấm đúp → lần hai báo "đã xử lý"
+      const quyet = async (kq) => {
+        if (dangQuyet) return;
+        dangQuyet = true; $('#xmDat', m).disabled = true; $('#xmTuChoi', m).disabled = true;
+        let k = null;
+        try { k = await goiNhayCam('admin_xac_minh_quyet', { p_id: r.id, p_ket_qua: kq, p_ly_do: kq === 'tu_choi' ? $('#xmLyDo', m).value : null }, LOI_XM); }
+        finally { if (!k) { dangQuyet = false; $('#xmDat', m).disabled = false; $('#xmTuChoi', m).disabled = false; } }
+        if (!k) return;
+        closeModal(); toast(kq === 'dat' ? t('Đã duyệt — huy hiệu đã bật.') : t('Đã từ chối — người dùng được báo trong app.')); render();
+      };
+      $('#xmDat', m).onclick = () => quyet('dat');
+      $('#xmTuChoi', m).onclick = () => quyet('tu_choi');
+    });
+  }
+
+  async function moBangChung(r) {
+    const lyDo = await hoiLyDo(t('Nội dung tin bị gỡ')); if (!lyDo) return;
+    let e;
+    try { e = await goiNhayCam('admin_group_evidence', { p_message: r.message_id, p_reason: lyDo }); }
+    catch (x) { toast(laChuaMo(x) ? t('Máy chủ chưa mở admin_group_evidence cho trang quản trị.') : friendly(x), true); return; }
+    if (!e) return;
+    // Quyền xem tệp vừa được cấp (15 phút): bỏ URL cũ trong bộ nhớ đệm rồi xin lại.
+    const tep = [e.image_path, e.video_path, e.audio_path];
+    tep.filter(Boolean).forEach((p) => { urlCache.delete('f:' + p); urlCache.delete('t:' + p); });
+    const [uAnh, uVideo, uThoai] = await Promise.all(tep.map((p) => (p ? photoUrl(p, false, true).catch(() => null) : null)));
+    const hong = (p, u) => (p && !u ? `<div class="hint">${t('Không tải được tệp')}</div>` : '');
+    modalRong(`<h2>${t('Nội dung tin bị gỡ')}</h2>
+      <p>${t('Đã ghi nhật ký. Quyền xem tệp hết hạn sau 15 phút.')} ${t('Máy chủ giữ bằng chứng này 180 ngày')}${e.retain_until ? ` (${t('tới')} ${esc(fmtNgay(e.retain_until))})` : ''}.</p>
+      <div class="msg">
+        <span class="who">${esc((r.nguoi_gui && r.nguoi_gui.ten) || String(e.sender_id || '').slice(0, 8))}</span><span class="when">${esc(fmtDate(e.message_created_at))}</span>
+        ${r.nhom ? `<div class="hint">${t('Nhóm')}: ${esc(r.nhom)}</div>` : ''}
+        ${e.body ? `<div class="body">${esc(e.body)}</div>` : ''}
+        <div id="mMedia"></div>${hong(e.image_path, uAnh)}${hong(e.video_path, uVideo)}${hong(e.audio_path, uThoai)}
+        ${e.lat != null && e.lng != null ? `<div class="hint">📍 ${esc(Number(e.lat).toFixed(5))}, ${esc(Number(e.lng).toFixed(5))}</div>` : ''}
+        ${!e.body && !e.image_path && !e.video_path && !e.audio_path && e.lat == null ? `<div class="hint">${t('Tin không có nội dung còn lưu.')}</div>` : ''}
+      </div>
+      <dl class="kv" style="margin-top:8px">
+        <dt>${t('Người gỡ')}</dt><dd>${esc((r.nguoi_go && r.nguoi_go.ten) || '—')} · ${esc(fmtDate(e.removed_at))}</dd>
+        <dt>${t('Lý do gỡ')}</dt><dd>${esc(e.reason || '—')}</dd>
+      </dl>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" id="mCancel">${t('Đóng')}</button></div>`, (m) => {
+      $('#mCancel', m).onclick = () => closeModal();
+      const box = $('#mMedia', m);
+      if (uAnh) { const img = document.createElement('img'); img.className = 'anh-rieng'; img.alt = ''; img.src = uAnh; box.appendChild(img); }
+      if (uVideo) box.appendChild(theMedia('video', uVideo));
+      if (uThoai) box.appendChild(theMedia('audio', uThoai));
+    });
+  }
+
+  // ---------------------------------------------------------------- QUÉT STORY (084 §P)
+  // Hàng chờ chỉ có việc khi story_flags.public_screening bật: Story CÔNG KHAI tới người lạ sau khi được quét / người duyệt.
+  /** Tệp của một trang Story: composition.assets = { aN: { p: ảnh (hoặc ảnh bìa của video), v?: video (123) } }. */
+  const tepStory = (comp) => Object.values((comp && typeof comp === 'object' && comp.assets) || {})
+    .filter((a) => a && typeof a === 'object' && typeof a.p === 'string')
+    .map((a) => ({ p: a.p, v: typeof a.v === 'string' ? a.v : null }));
+  const SCREEN = () => ({ manual: t('Cần người xem'), pending: t('Đang chờ máy quét') });
+
+  async function renderQuetStory(main) {
+    main.innerHTML = dangTai;
+    const phu = t('Story CÔNG KHAI chỉ tới người lạ sau khi được quét — nhưng chỉ khi cờ story_flags.public_screening đang bật. Hiện cờ này TẮT theo quyết định của chủ dự án, nên danh sách trống là bình thường.');
+    let rows;
+    try { rows = await rpc('admin_story_screen_queue', { p_limit: 50 }); }
+    catch (e) {
+      if (!laChuaMo(e)) throw e;
+      main.innerHTML = khung(t('Quét Story'), esc(phu), `<div class="alertbar warn"><div><b>${t('Máy chủ chưa mở hàng chờ quét Story cho trang quản trị')}</b><br>${t('admin_story_screen_queue / admin_story_screen (084) chưa có trong danh sách trắng api_functions. Không ảnh hưởng gì khi cờ quét đang tắt.')}</div></div>`);
+      return;
+    }
+    rows = rows || [];
+    main.innerHTML = khung(t('Quét Story'), esc(phu), `
+      <div class="grid" id="qsGrid">${rows.length ? rows.map((s) => {
+        const tep = tepStory(s.composition);
+        return `<div class="pcard" data-id="${esc(s.id)}">
+          ${tep.length ? tep.map((a) => (a.v ? `<video controls playsinline preload="none" data-vid="${esc(a.v)}" style="width:100%;display:block;background:var(--surface3)"></video>`
+            : `<img data-photo="${esc(a.p)}" data-full data-zoom="${esc(a.p)}" title="${t('Bấm để xem to')}" alt="" style="opacity:0;transition:opacity .2s">`)).join('')
+            : `<div class="hint" style="padding:10px">${t('Trang này không có ảnh — chỉ chữ / đồ hoạ.')}</div>`}
+          <div class="b">
+            <div class="row" style="gap:6px"><span class="tag ${s.screen === 'manual' ? 'warn' : ''}">${esc(SCREEN()[s.screen] || s.screen || '—')}</span><a href="#nguoidung/${esc(s.owner_id)}" style="font-weight:700;color:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.owner_name || '?')}</a></div>
+            <div class="hint">${esc(fmtDate(s.created_at))} · ${t('lần quét')} ${so(s.attempts)}${s.screen_reason ? '<br>' + esc(s.screen_reason) : ''}</div>
+            <details><summary class="hint" style="cursor:pointer">${t('Bố cục (JSON)')}</summary><pre class="quote" style="white-space:pre-wrap;max-height:240px;overflow:auto;font-size:11px">${esc(JSON.stringify(s.composition, null, 2))}</pre></details>
+            <div class="r"><button class="btn ok" data-set="approved">${t('Duyệt')}</button><button class="btn danger" data-set="rejected">${t('Từ chối')}</button></div>
+          </div></div>`;
+      }).join('') : `<div class="empty" style="grid-column:1/-1">${t('Không có trang Story nào chờ quét.')}</div>`}</div>`);
+    const grid = $('#qsGrid');
+    grid.querySelectorAll('video[data-vid]').forEach(async (v) => {
+      const p = v.getAttribute('data-vid'); v.removeAttribute('data-vid');
+      let u = null; try { u = await photoUrl(p, false); } catch (e) { u = null; }
+      if (u) v.src = u; else v.replaceWith(khungAnhHong());
+    });
+    grid.querySelectorAll('[data-set]').forEach((b) => b.addEventListener('click', () => quyetStory(b.closest('.pcard'), b.dataset.set)));
+    hydratePhotos(grid); noiXemAnh(grid);
+  }
+  async function quyetStory(card, status) {
+    if (!card || dangGui) return;
+    let lyDo = null;
+    if (status === 'rejected') {
+      lyDo = await hoiLyDoViec(t('Từ chối trang Story'), t('Trang này không tới được ai ngoài chủ của nó. Chủ Story không thấy lý do.'), t('Từ chối'), true);
+      if (!lyDo) return;
+    }
+    dangGui = true;
+    card.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+    try {
+      await rpc('admin_story_screen', { p_slide: card.dataset.id, p_status: status, p_reason: lyDo });
+      card.style.opacity = '0.35';
+      toast(status === 'approved' ? t('Đã duyệt') : t('Đã từ chối'));
+    } catch (e) {
+      card.querySelectorAll('button').forEach((x) => { x.disabled = false; });
+      const m = (e && e.message) || '';
+      toast(laChuaMo(e) ? t('Máy chủ chưa mở hàng chờ quét Story cho trang quản trị')
+        : /unavailable/.test(m) ? t('Trang Story này không còn (đã xoá hoặc đã bị gỡ).')
+        : /chính bạn/.test(m) ? t(m) : friendly(e), true);
+    } finally { dangGui = false; }
+  }
+
   // ---------------------------------------------------------------- NGƯỜI DÙNG
   async function renderUsers(main) {
     const f = state.ng;
@@ -1163,7 +1578,7 @@
         <span class="t">
           <span class="n">${esc(u.display_name)}${u.tuoi ? ` <span class="hint">${u.tuoi} ${t('tuổi')}</span>` : ''} ${modTag(u.moderation_status, u.moderation_until)}${u.la_admin ? `<span class="tag accent">${t('quản trị')}</span>` : ''}${u.warned_count ? `<span class="tag warn">${t('cảnh cáo')} ${u.warned_count}</span>` : ''}${u.reports_open ? `<span class="tag danger">${u.reports_open} ${t('báo cáo mở')}</span>` : ''}${u.incognito ? `<span class="tag">${t('ẩn danh')}</span>` : ''}${u.plus_until && new Date(u.plus_until) > new Date() ? `<span class="tag ok">${t('Plus')}</span>` : ''}</span>
           <span class="s">${esc(u.email || '')}${u.country ? ' · ' + esc(u.country) : ''}</span>
-          <span class="m">${t('vào')} ${esc(ago(u.last_seen))} · tham gia ${esc(fmtNgay(u.created_at))} · ${u.so_bai} ${t('bài ·')} ${so(u.so_tin)} ${t('tin')}${u.reports_received ? ` ${t('· bị báo cáo')} ${u.reports_received}` : ''}${u.co_thong_bao ? '' : ` ${t('· tắt thông báo')}`}</span>
+          <span class="m">${t('vào')} ${esc(ago(u.last_seen))} · ${t('tham gia')} ${esc(fmtNgay(u.created_at))} · ${u.so_bai} ${t('bài ·')} ${so(u.so_tin)} ${t('tin')}${u.reports_received ? ` ${t('· bị báo cáo')} ${u.reports_received}` : ''}${u.co_thong_bao ? '' : ` ${t('· tắt thông báo')}`}</span>
         </span>
       </button>`).join('') : `<div class="empty">${t('Không tìm thấy ai khớp bộ lọc.')}</div>`;
     list.querySelectorAll('.item').forEach((b) => b.addEventListener('click', () => nav('nguoidung', b.dataset.id)));
@@ -1284,12 +1699,15 @@
       banned: { title: `${t('Khoá vĩnh viễn')}`, text: `${name} ${t('không bao giờ đăng nhập lại được; dữ liệu giữ nguyên làm bằng chứng.')}`, noteLabel: `${t('Lý do (nội bộ)')}`, okLabel: `${t('Khoá vĩnh viễn')}`, danger: true },
       delete: { title: `${t('Xoá tài khoản')}`, text: `${t('Xoá hẳn')} ${name} ${t('cùng toàn bộ dữ liệu. Không hoàn tác được. Email được giữ trong nhật ký.')}`, noteLabel: `${t('Lý do (nội bộ)')}`, okLabel: `${t('Xoá vĩnh viễn')}`, danger: true },
     };
+    const canLyDo = act === 'suspended' || act === 'banned' || act === 'delete';   // 166c
+    if (canLyDo) cfgs[act].noteLabel = t('Lý do (bắt buộc, ít nhất 3 ký tự)');
     const ans = await confirmAction(cfgs[act]); if (!ans) return;
+    if (canLyDo && (ans.note || '').trim().length < 3) { toast(t('Cần ghi lý do (ít nhất 3 ký tự).'), true); return; }
     dangGui = true;
     try {
       if (act === 'warn') await rpc('admin_warn_user', { p_user: u.id, p_text: ans.note || null });
-      else if (act === 'delete') await rpc('admin_delete_user', { p_user: u.id, p_reason: ans.note || null });
-      else await rpc('admin_set_user_status', { p_user: u.id, p_status: act, p_days: ans.days, p_reason: ans.note || null });
+      else if (act === 'delete') await rpcHaiLop('admin_delete_user', { p_user: u.id, p_reason: ans.note || null });
+      else await rpcHaiLop('admin_set_user_status', { p_user: u.id, p_status: act, p_days: ans.days, p_reason: ans.note || null });
       toast(t('Xong') + ': ' + (ACTION[act === 'warn' ? 'warn' : act === 'delete' ? 'delete' : 'status:' + act] || act));
       if (act === 'delete') nav('nguoidung'); else await render();
     } catch (e) { toast(friendly(e), true); }
@@ -1417,7 +1835,7 @@
           <button class="item" id="cTacGia" style="padding:8px 4px">
             ${avatar(a.anh, a.ten)}
             <span class="t"><span class="n">${esc(a.ten || '?')}${a.la_admin ? `<span class="tag accent">${t('quản trị')}</span>` : ''}${modTag(a.trang_thai)}${a.canh_cao ? `<span class="tag warn">${t('cảnh cáo')} ${a.canh_cao}</span>` : ''}</span>
-            <span class="m">tham gia ${esc(fmtNgay(a.tham_gia))}${a.nuoc ? ' · ' + esc(a.nuoc) : ''} · ${laBai ? `${so(a.so_bai)} ${t('bài')}` : `${so(a.so_binh_luan)} ${t('bình luận')}`}${a.bi_bao_cao ? ` ${t('· bị báo cáo')} ${a.bi_bao_cao} ${t('lần')}` : ''}</span></span>
+            <span class="m">${t('tham gia')} ${esc(fmtNgay(a.tham_gia))}${a.nuoc ? ' · ' + esc(a.nuoc) : ''} · ${laBai ? `${so(a.so_bai)} ${t('bài')}` : `${so(a.so_binh_luan)} ${t('bình luận')}`}${a.bi_bao_cao ? ` ${t('· bị báo cáo')} ${a.bi_bao_cao} ${t('lần')}` : ''}</span></span>
           </button>
         </div>
 
@@ -1486,8 +1904,210 @@
     finally { dangGui = false; }
   }
 
+  // ---------------------------------------------------------------- SỰ KIỆN (151)
+  // Danh sách cần xử lý (chờ duyệt / bị ẩn / bị báo cáo) + chi tiết. Hiện / Ẩn / gỡ bìa đều cần lý do và được máy chủ ghi
+  // nhật ký (admin_actions). Máy chủ chưa có 151 → một dòng báo ngắn, các mục khác vẫn chạy.
+  const canBanVa151 = (them) => `<div class="alertbar warn"><div><b>${t('Cần bản vá 151 trên máy chủ')}</b><br>${them || t('Áp supabase/151-quan-tri-su-kien-thoai.sql trong SQL Editor. Các mục khác vẫn dùng bình thường.')}</div></div>`;
+  /** Lỗi của các hàm quản trị 151 → câu dễ hiểu. */
+  function loiQuanTri(e) {
+    const m = (e && e.message) || '';
+    if (laChuaCo(e)) return t('Cần bản vá 151 trên máy chủ');
+    if (/\bforbidden\b/.test(m)) return LOI_NHAY_CAM.forbidden;
+    if (/reason_required/.test(m)) return LOI_NHAY_CAM.reason_required;
+    if (/^not found$|not_found/.test(m)) return LOI_NHAY_CAM.not_found;
+    if (/chính bạn/.test(m)) return t(m);
+    return friendly(e);
+  }
+  /** Hỏi lý do cho một thao tác (bắt buộc, ít nhất 3 ký tự). null khi huỷ. */
+  async function hoiLyDoViec(title, text, okLabel, danger) {
+    const ans = await confirmAction({ title, text, noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel, danger });
+    if (!ans) return null;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return null; }
+    return ans.note;
+  }
+  const tagSuKien = (s) => `${s.trang_thai === 'cho_duyet' ? `<span class="tag warn">${t('Chờ duyệt')}</span>`
+    : s.trang_thai === 'an' ? `<span class="tag danger">${t('Bị ẩn')}</span>` : `<span class="tag ok">${t('Đang hiện')}</span>`}${s.da_huy || s.huy_luc ? `<span class="tag">${t('Đã huỷ')}</span>` : ''}`;
+  const noiSuKien = (s) => (s.truc_tuyen ? t('Trực tuyến') : [s.khu_vuc, tenNuoc(s.quoc_gia)].filter(Boolean).join(' · ') || '—');
+  const LOC_SK = () => [['can_xu_ly', t('Cần xử lý')], ['cho_duyet', t('Chờ duyệt')], ['an', t('Bị ẩn')], ['bao_cao', t('Bị báo cáo')], ['sap_toi', t('Sắp diễn ra')], ['tat_ca', t('Tất cả')]];
+
+  async function renderSuKien(main) {
+    const f = state.sk;
+    main.innerHTML = `<div class="cols${state.id ? '' : ' wide'}">
+      <section>
+        <div class="sec"><h2>${t('Sự kiện')}</h2><span class="hint" id="skTong"></span></div>
+        <p class="sub">${t('Sự kiện chờ duyệt, bị ẩn (kể cả tự ẩn khi đủ 3 báo cáo) hoặc đang bị báo cáo. Bấm một sự kiện để xem đầy đủ và xử lý.')}</p>
+        <div class="chips" id="skLoc" role="group" aria-label="${esc(t('Lọc sự kiện'))}"></div>
+        <div class="filters" style="margin-top:8px">
+          <input id="skQ" placeholder="${esc(t('Tiêu đề, khu vực, mã sự kiện…'))}" aria-label="${esc(t('Tìm sự kiện'))}" value="${esc(f.q)}" autocomplete="off">
+        </div>
+        <div class="list card" id="skList" style="padding:4px 12px;margin-top:10px"><div class="skeleton"></div><div class="skeleton"></div></div>
+        <div class="pager" id="skPager"></div>
+      </section>
+      <aside class="pane" id="skPane" ${state.id ? '' : 'hidden'}></aside>
+    </div>`;
+    $('#skQ').onkeydown = (e) => { if (e.key === 'Enter') { f.q = $('#skQ').value.trim(); f.trang = 0; nav('noidung/sukien'); } };
+    let d;
+    try { d = await rpc('admin_su_kien_ds', { p_loc: f.loc, p_q: f.q || null, p_limit: TRANG, p_offset: f.trang * TRANG }); }
+    catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Sự kiện'), '', canBanVa151()); return; } throw e; }
+    const dm = (d && d.dem) || {}; const rows = (d && d.rows) || []; const tong = Number(d && d.tong) || 0;
+    const nLoc = { cho_duyet: dm.cho_duyet, an: dm.an, bao_cao: dm.bao_cao };
+    $('#skLoc').innerHTML = LOC_SK().map(([k, l]) => `<button class="chip" data-loc="${k}" aria-pressed="${f.loc === k}">${esc(l)}${nLoc[k] ? ` (${so(nLoc[k])})` : ''}</button>`).join('');
+    $('#skLoc').querySelectorAll('[data-loc]').forEach((b) => b.addEventListener('click', () => { f.loc = b.dataset.loc; f.trang = 0; nav('noidung/sukien'); }));
+    $('#skTong').textContent = tong ? `${so(tong)} ${dem(tong, 'sự kiện')}` : '';
+    const list = $('#skList');
+    list.innerHTML = rows.length ? rows.map(dongSuKien).join('')
+      : `<div class="empty">${f.loc === 'can_xu_ly' && !f.q ? t('Không có sự kiện nào cần xử lý. 🎉') : t('Không có sự kiện nào khớp bộ lọc.')}</div>`;
+    list.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => nav('noidung/sukien', b.dataset.open)));
+    pager($('#skPager'), tong, f.trang, (n) => { f.trang = n; nav('noidung/sukien'); });
+    hydratePhotos(list);
+    if (state.id) await renderSuKienPane($('#skPane'), state.id);
+  }
+
+  function dongSuKien(s) {
+    const tc = s.to_chuc || {};
+    return `<button class="item" data-open="${esc(s.id)}" aria-current="${state.id === s.id}">
+      ${avatar(s.bia && s.bia_trang_thai === 'duyet' ? s.bia : null, s.tieu_de)}
+      <span class="t">
+        <span class="n">${esc(s.tieu_de || '—')} ${tagSuKien(s)}${s.so_bao_cao ? `<span class="tag danger">${so(s.so_bao_cao)} ${dem(s.so_bao_cao, 'báo cáo')}</span>` : ''}${LOAI_SK[s.loai] ? `<span class="tag accent">${esc(LOAI_SK[s.loai])}</span>` : ''}</span>
+        <span class="s" style="display:block">${esc(tc.ten || t('Tài khoản đã xoá'))} · ${esc(fmtDate(s.bat_dau))} · ${esc(noiSuKien(s))}</span>
+        <span class="m" style="display:block;white-space:normal">${so(s.so_di)} ${t('người sẽ đi')}${s.bao_cao_moi ? ` · ${t('báo cáo mới nhất')} ${esc(ago(s.bao_cao_moi))}` : ''} · ${t('tạo')} ${esc(ago(s.tao_luc))}</span>
+      </span>
+    </button>`;
+  }
+
+  /** Chi tiết một sự kiện: nội dung đầy đủ, người tổ chức, báo cáo (đang mở + đã xử lý), nhóm chat, nhật ký quản trị, nút xử lý. */
+  async function renderSuKienPane(pane, id) {
+    pane.hidden = false;
+    pane.innerHTML = '<div class="stack"><div class="skeleton"></div><div class="skeleton"></div></div>';
+    const d = await rpc('admin_su_kien_chi_tiet', { p_id: id });
+    const quay = `<button class="btn ghost sm sheet-close" id="paneClose">${t('← Danh sách')}</button>`;
+    if (!d) {
+      pane.innerHTML = `${quay}<div class="card"><h2>${t('Không tìm thấy sự kiện')}</h2><div class="hint">${t('Sự kiện này không còn (có thể đã bị xoá).')}</div></div>`;
+      $('#paneClose', pane).onclick = () => nav('noidung/sukien');
+      return;
+    }
+    pane.innerHTML = `${quay}
+      <div class="stack">
+        ${theSuKien(d)}
+        ${theXuLySuKien(d)}
+        ${theToChuc(d.to_chuc)}
+        ${theBaoCaoSuKien(d.bao_cao || [], d.bao_cao_cu || [])}
+        ${theNhomChatSuKien(d.nhom_chat)}
+        ${nhatKyNgan((d.nhat_ky || []).map((a) => ({ created_at: a.luc, action: a.action, admin: a.admin, note: a.ly_do })))}
+      </div>`;
+    $('#paneClose', pane).onclick = () => nav('noidung/sukien');
+    pane.querySelectorAll('[data-sk]').forEach((b) => b.addEventListener('click', () => thaoTacSuKien(d, b.dataset.sk)));
+    const mb = $('#skMoBia', pane); if (mb) mb.addEventListener('click', () => moBiaSuKien(d, mb));
+    hydratePhotos(pane); noiXemAnh(pane);
+  }
+
+  const PHAM_VI_SK = () => ({ cong_khai: t('Công khai'), ban_be: t('Bạn bè'), nhom: t('Thành viên nhóm') });
+  const BIA_SK = () => ({ cho: t('đang chờ máy duyệt'), duyet: t('đã duyệt'), tu_choi: t('máy đã từ chối') });
+  function theSuKien(d) {
+    // Quản trị viên đọc được bìa khi bìa đã duyệt và sự kiện công khai, chưa huỷ (133); còn lại mở qua admin_mo_anh (ghi nhật ký).
+    const docBia = d.bia && d.bia_trang_thai === 'duyet' && d.pham_vi === 'cong_khai' && !d.huy_luc;
+    return `<div class="card stack" style="gap:10px">
+      <div class="row" style="justify-content:space-between;align-items:flex-start"><h2>${esc(d.tieu_de || '—')}</h2><span class="row" style="gap:4px">${tagSuKien(d)}</span></div>
+      ${d.bia ? `<div>${docBia ? `<img class="photo" style="max-width:100%" data-photo="${esc(d.bia)}" data-full data-zoom="${esc(d.bia)}" alt="${esc(t('Ảnh bìa'))}" title="${t('Bấm để xem to')}">`
+        : `<button class="btn sm" id="skMoBia">${t('Mở ảnh bìa (ghi nhật ký)')}</button>`}
+        <div class="hint">${t('Ảnh bìa')}: ${esc(BIA_SK()[d.bia_trang_thai] || d.bia_trang_thai || '—')}${d.bia_ma ? ` · ${t('Mã')}: ${esc(d.bia_ma)}` : ''}</div></div>` : ''}
+      ${d.mo_ta ? `<div class="quote">${esc(d.mo_ta)}</div>` : `<div class="hint">${t('Không có mô tả.')}</div>`}
+      <dl class="kv">
+        <dt>${t('Loại')}</dt><dd>${esc(LOAI_SK[d.loai] || d.loai || '—')}</dd>
+        <dt>${t('Thời gian')}</dt><dd>${esc(fmtDate(d.bat_dau))}${d.ket_thuc ? ` → ${esc(fmtDate(d.ket_thuc))}` : ''}</dd>
+        ${d.truc_tuyen ? `<dt>${t('Trực tuyến')}</dt><dd style="overflow-wrap:anywhere">${esc(d.link || d.dia_diem || '—')}</dd>`
+          : `<dt>${t('Địa điểm')}</dt><dd>${esc(d.dia_diem || '—')}${d.khu_vuc ? ` · ${esc(d.khu_vuc)}` : ''}${d.quoc_gia ? ` · ${esc(tenNuoc(d.quoc_gia))}` : ''}${d.an_dia_chi ? ` <span class="tag">${t('ẩn địa chỉ chính xác')}</span>` : ''}</dd>`}
+        <dt>${t('Sức chứa')}</dt><dd>${d.suc_chua ? so(d.suc_chua) : t('không giới hạn')}</dd>
+        <dt>${t('Ai xem được')}</dt><dd>${esc(PHAM_VI_SK()[d.pham_vi] || d.pham_vi || '—')}${d.nhom ? ` · <b>${esc(d.nhom.title || '—')}</b>` : ''}</dd>
+        <dt>${t('Đăng ký')}</dt><dd>${so(d.so_di)} ${t('sẽ đi')} · ${so(d.so_co_the)} ${t('có thể đi')}</dd>
+        <dt>${t('Tạo lúc')}</dt><dd>${esc(fmtDate(d.tao_luc))}${d.huy_luc ? ` · ${t('huỷ lúc')} ${esc(fmtDate(d.huy_luc))}` : ''}</dd>
+        <dt>${t('Sửa trong 24 giờ')}</dt><dd>${d.so_lan_sua_24h == null ? '—' : `${so(d.so_lan_sua_24h)} ${t('lần')}`}</dd>
+        <dt>${t('Mã')}</dt><dd><code>${esc(d.id)}</code></dd>
+      </dl>
+    </div>`;
+  }
+  function theXuLySuKien(d) {
+    const coBc = (d.bao_cao || []).length > 0;
+    return `<div class="card stack" style="gap:8px"><h2>${t('Xử lý')}</h2>
+      <div class="actions">
+        ${d.trang_thai !== 'hien' || coBc ? `<button class="btn ok" data-sk="hien">${t('Hiện sự kiện')}<small>${t('Báo cáo đang mở chuyển sang lịch sử')}</small></button>` : ''}
+        ${d.trang_thai !== 'an' ? `<button class="btn danger" data-sk="an">${t('Ẩn sự kiện')}<small>${t('Người khác không thấy sự kiện nữa')}</small></button>` : ''}
+        ${d.bia ? `<button class="btn danger" data-sk="bia">${t('Gỡ ảnh bìa')}<small>${t('Tệp bị xoá, sự kiện giữ nguyên')}</small></button>` : ''}
+      </div>
+      <div class="hint">${t('Hiện lại một sự kiện thì các báo cáo đang mở chuyển sang lịch sử, nên luật "3 người báo cáo → tự ẩn" đếm lại từ đầu. Mọi thao tác cần lý do và được ghi vào nhật ký quản trị.')}</div>
+    </div>`;
+  }
+  const theToChuc = (tc) => `<div class="card stack" style="gap:8px"><h2>${t('Người tổ chức')}</h2>
+    ${tc && tc.id ? `<a class="item" href="#nguoidung/${esc(tc.id)}" style="padding:8px 4px;text-decoration:none">${avatar(tc.anh, tc.ten)}
+      <span class="t"><span class="n">${esc(tc.ten || '?')}${modTag(tc.trang_thai)}</span><span class="m">${t('Tham gia')} ${esc(fmtNgay(tc.tao_luc))}</span></span></a>`
+      : `<div class="hint">${t('Tài khoản đã xoá')}</div>`}</div>`;
+  function theBaoCaoSuKien(mo, cu) {
+    const nguoi = (r) => (r.user_id ? `<a href="#nguoidung/${esc(r.user_id)}">${esc(r.ten || '?')}</a>` : esc(t('Tài khoản đã xoá')));
+    return `<div class="card stack" style="gap:8px">
+      <div class="sec"><h2>${t('Báo cáo đang mở')}</h2><span class="hint">${so(mo.length)}</span></div>
+      ${mo.length ? `<div class="list">${mo.map((r) => `<div class="item" style="cursor:default"><span class="t">
+          <span class="n">${esc(LY_DO_SK[r.ly_do] || r.ly_do)}</span>
+          ${r.ghi_chu ? `<span class="s" style="display:block;white-space:normal">${esc(r.ghi_chu)}</span>` : ''}
+          <span class="m" style="display:block;white-space:normal">${esc(fmtDate(r.tao_luc))} ${t('· từ')} ${nguoi(r)}</span></span></div>`).join('')}</div>`
+        : `<div class="hint">${t('Không có báo cáo nào đang mở.')}</div>`}
+      ${cu.length ? `<details><summary class="hint" style="cursor:pointer">${t('Báo cáo đã xử lý')} (${so(cu.length)})</summary><div class="stack" style="gap:6px;margin-top:6px">${cu.map((r) => `<div class="hint"><b>${esc(LY_DO_SK[r.ly_do] || r.ly_do)}</b> · ${t('báo cáo lúc')} ${esc(fmtDate(r.tao_luc))} · ${t('xử lý lúc')} ${esc(fmtDate(r.xu_ly_luc))}${r.ghi_chu ? '<br>' + esc(r.ghi_chu) : ''}</div>`).join('')}</div></details>` : ''}
+    </div>`;
+  }
+  const VIS_NHOM = () => ({ public: t('Công khai'), private: t('Riêng tư') });
+  const DONG_NHOM = () => ({ giu: t('Giữ nhóm như thường'), '2d': t('Chỉ đọc 2 ngày sau khi kết thúc'), '7d': t('Chỉ đọc 7 ngày sau khi kết thúc'), '30d': t('Chỉ đọc 30 ngày sau khi kết thúc') });
+  function theNhomChatSuKien(c) {
+    if (!c) return '';
+    return `<div class="card stack" style="gap:8px"><h2>${t('Nhóm chat của sự kiện')}</h2>
+      <dl class="kv">
+        <dt>${t('Tên nhóm')}</dt><dd>${esc(c.title || '—')}</dd>
+        <dt>${t('Hiển thị')}</dt><dd>${esc(VIS_NHOM()[c.visibility] || c.visibility || '—')}</dd>
+        <dt>${t('Thành viên')}</dt><dd>${so(c.members)}</dd>
+        ${c.cua_su_kien ? `<dt>${t('Ai được nhắn')}</dt><dd>${c.mo ? t('Mọi thành viên') : t('Chỉ chủ nhóm / quản trị nhóm (kênh thông báo)')}</dd>
+        <dt>${t('Sau sự kiện')}</dt><dd>${esc(DONG_NHOM()[c.dong] || c.dong || '—')}</dd>` : `<dt>${t('Nguồn')}</dt><dd>${t('Nhóm có sẵn được gắn vào sự kiện')}</dd>`}
+        <dt>${t('Mã nhóm')}</dt><dd><code>${esc(c.id)}</code></dd>
+      </dl>
+      <div class="hint">${t('Đọc tin nhắn của nhóm: mở từ báo cáo về nhóm hoặc từ trang của một thành viên (cần lý do, xác thực hai lớp, có ghi nhật ký).')}</div>
+    </div>`;
+  }
+
+  async function thaoTacSuKien(d, act) {
+    if (dangGui) return;
+    const cfg = {
+      hien: [t('Hiện sự kiện'), t('Sự kiện hiện lại với những người được xem nó. Các báo cáo đang mở chuyển sang lịch sử, nên luật "3 người báo cáo → tự ẩn" đếm lại từ đầu.'), t('Hiện'), false],
+      an: [t('Ẩn sự kiện'), t('Sự kiện biến khỏi danh sách và trang sự kiện của người khác. Hiện lại được bất cứ lúc nào.'), t('Ẩn'), true],
+      bia: [t('Gỡ ảnh bìa'), t('Ảnh bìa bị gỡ khỏi sự kiện và tệp vào hàng đợi xoá — không lấy lại được. Sự kiện giữ nguyên.'), t('Gỡ'), true],
+    }[act];
+    if (!cfg) return;
+    const lyDo = await hoiLyDoViec(cfg[0], cfg[1], cfg[2], cfg[3]); if (!lyDo) return;
+    dangGui = true;
+    try {
+      if (act === 'bia') {
+        await rpc('admin_su_kien_go_bia', { p_id: d.id, p_ly_do: lyDo });
+        toast(t('Đã gỡ ảnh bìa.'));
+      } else {
+        const kq = await rpc('admin_su_kien_dat', { p_id: d.id, p_hien: act === 'hien', p_ly_do: lyDo });
+        const n = kq && kq.bao_cao_da_xu_ly;
+        toast(act === 'hien' ? `${t('Đã hiện sự kiện.')}${n ? ` ${so(n)} ${t('báo cáo chuyển sang lịch sử.')}` : ''}` : t('Đã ẩn sự kiện.'));
+      }
+      await render();
+    } catch (e) { toast(loiQuanTri(e), true); }
+    finally { dangGui = false; }
+  }
+  async function moBiaSuKien(d, b) {
+    const lyDo = await hoiLyDo(t('Ảnh bìa sự kiện')); if (!lyDo) return;
+    b.disabled = true;
+    let urls = {};
+    try { urls = await moAnhRieng([d.bia], lyDo); } catch (e) { urls = {}; }
+    if (urls[d.bia]) {
+      const img = document.createElement('img');
+      img.className = 'photo'; img.style.maxWidth = '100%'; img.alt = t('Ảnh bìa'); img.src = urls[d.bia];
+      b.replaceWith(img);
+    } else { b.disabled = false; toast(t('Không tải được ảnh'), true); }
+  }
+
   // ---------------------------------------------------------------- SỐ LIỆU
   async function renderSoLieu(main) {
+    if (state.sub === 'doanhthu') return renderDoanhThu(main);
     main.innerHTML = dangTai;
     // Nhu cầu trả phí đọc bảng khác — đừng gọi admin_growth cho phí một vòng.
     if (state.sub === 'nhucau') return veNhuCau(main);
@@ -1623,12 +2243,17 @@
   // ---------------------------------------------------------------- PHÂN TÍCH (081)
   // admin.js gọi máy chủ; admin-phan-tich.js chỉ vẽ. Máy chủ chưa có 081 thì nói rõ, không hiện bảng rỗng.
   async function renderPhanTich(main) {
-    main.innerHTML = dangTai;
     const PT = window.HIMO_PT;
-    const ctx = { t, esc, so, nav, fmtNgay, locale, lang: () => lang };
+    const ctx = { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc };
+    if (state.sub === 'chandung') return renderChanDung(main, PT, ctx);
+    main.innerHTML = dangTai;
     let o;
     try {
-      if (state.sub === 'vanhanh') {
+      if (state.sub === 'sukien') {
+        // 151 — riêng một khối: máy chủ chưa có 151 thì báo ngắn, không lẫn với lời nhắc 081.
+        try { o = await rpc('admin_pt_su_kien', { p_days: state.pt.ngay }); }
+        catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Sự kiện & tin thoại'), '', canBanVa151()); return; } throw e; }
+      } else if (state.sub === 'vanhanh') {
         let tz = 'Asia/Ho_Chi_Minh';
         try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) { /* trình duyệt cũ */ }
         o = await rpc('admin_pt_van_hanh', { p_tz: tz });
@@ -1655,7 +2280,10 @@
     if (state.sub === 'vanhanh') PT.vanHanh(main, o, ctx);
     else if (state.sub === 'chuyensau') PT.chuyenSau(main, o, ctx);
     else if (state.sub === 'stories') PT.stories(main, o, ctx);
-    else if (state.sub === 'nguoithat') {
+    else if (state.sub === 'sukien') {
+      if (!PT.suKien) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
+      PT.suKien(main, o || {}, ctx);
+    } else if (state.sub === 'nguoithat') {
       let uv = null;
       try { uv = await rpc('admin_noi_bo_ung_vien'); } catch (e) { uv = null; }   // candidates are optional
       PT.nguoiThat(main, o, ctx, uv);
@@ -1663,9 +2291,74 @@
     main.querySelectorAll('#ptKy .chip').forEach((c) => c.addEventListener('click', () => { state.pt.ngay = Number(c.dataset.d); render(); }));
   }
 
+  // ---------------------------------------------------------------- CHÂN DUNG NGƯỜI DÙNG (167)
+  // Một lời gọi admin_pt_chan_dung cho mỗi lần mở / đổi bộ lọc / tự làm mới: máy chủ đếm thẳng trên bảng hồ sơ lúc đó (không bảng
+  // tạm, không số gõ sẵn). Đang lọc thì gọi thêm một lần KHÔNG lọc để có danh sách nước / ngôn ngữ cho bộ lọc.
+  function locChanDung(coLoc) {
+    const c = state.cd, p = {};
+    if (coLoc) {
+      ['quoc_gia', 'tuoi', 'vai_tro', 'dang_nguoi', 'tinh_trang', 'dang_tim', 'ngon_ngu'].forEach((k) => { if (c[k].length) p[k] = c[k]; });
+      ['hoat_dong', 'dang_ky', 'plus', 'xac_minh'].forEach((k) => { if (c[k] !== 'all') p[k] = c[k]; });
+      p.cheo_a = c.cheo_a; p.cheo_b = c.cheo_b;
+    }
+    if (c.noi_bo) p.noi_bo = true;
+    if (c.ca_bi_khoa) p.ca_bi_khoa = true;
+    return p;
+  }
+  /** Tải một tệp văn bản do chính trang tạo ra (số tổng hợp đang hiện) — không gọi mạng. */
+  function taiTep(ten, noiDung) {
+    const u = URL.createObjectURL(new Blob([noiDung], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = u; a.download = ten; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 2000);
+  }
+  async function renderChanDung(main, PT, ctx) {
+    if (!main.querySelector('#cdGoc')) main.innerHTML = dangTai;      // đang ở sẵn thẻ này (đổi bộ lọc, tự làm mới): giữ màn hình tới khi có số mới
+    const c = state.cd;
+    const dangLoc = Object.keys(locChanDung(true)).some((k) => !['cheo_a', 'cheo_b', 'noi_bo', 'ca_bi_khoa'].includes(k));
+    let o, nen;
+    try {
+      [o, nen] = await Promise.all([rpc('admin_pt_chan_dung', { p_loc: locChanDung(true) }),
+        dangLoc ? rpc('admin_pt_chan_dung', { p_loc: locChanDung(false) }).catch(() => c.nen) : null]);
+    } catch (e) {
+      if (laChuaCo(e)) {
+        main.innerHTML = khung(t('Chân dung người dùng'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 167')}</b><br>${t('Thẻ này cần hàm admin_pt_chan_dung (supabase/167-chan-dung-nguoi-dung.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
+        return;
+      }
+      throw e;
+    }
+    if (!PT || !PT.chanDung) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
+    c.nen = dangLoc ? (nen || c.nen) : o;
+    PT.chanDung(main, o, ctx, { cd: c, nen: c.nen, doi: (fn) => { fn(c); render(); }, tai: taiTep });
+  }
+
+  // ---------------------------------------------------------------- DOANH THU (168)
+  // Một lời gọi admin_doanh_thu mỗi lần mở / đổi bộ lọc / tự làm mới (mỗi phút): máy chủ cộng thẳng từ sổ doanh thu lúc đó.
+  const muiGio = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
+  function locDoanhThu() {
+    const c = state.dt, p = { ngay: c.ngay, moi_truong: c.moi_truong, tz: muiGio() };
+    ['cua_hang', 'san_pham', 'quoc_gia'].forEach((k) => { if (c[k]) p[k] = c[k]; });
+    return p;
+  }
+  async function renderDoanhThu(main) {
+    if (!main.querySelector('#dtGoc')) main.innerHTML = dangTai;      // đang ở sẵn thẻ này: giữ màn hình tới khi có số mới
+    const PT = window.HIMO_PT;
+    let o;
+    try { o = await rpc('admin_doanh_thu', { p_loc: locDoanhThu() }); }
+    catch (e) {
+      if (laChuaCo(e)) {
+        main.innerHTML = khung(t('Doanh thu'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 168')}</b><br>${t('Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
+        return;
+      }
+      throw e;
+    }
+    if (!PT || !PT.doanhThu) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
+    PT.doanhThu(main, o, { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc }, { dt: state.dt, doi: (fn) => { fn(state.dt); render(); }, tai: taiTep });
+  }
+
   // ---------------------------------------------------------------- HỆ THỐNG
   async function renderHeThong(main) {
     if (state.sub === 'nhatky') return renderLog(main);
+    if (state.sub === 'nuoc') return renderNuoc(main);
     main.innerHTML = dangTai;
     const sy = await rpc('admin_system');
     const baoMat = await theBaoMat();
@@ -1747,6 +2440,7 @@
         <dl class="kv">
           <dt>${t('Đang bán')}</dt><dd>${onOff(st.sales_enabled)}</dd>
           <dt>${t('Cổng Plus')}</dt><dd>${onOff(st.plus_gates_enforced)}</dd>
+          <dt>${t('Tạm dừng mua mới')}</dt><dd>${onOff(st.purchases_paused)}</dd>
           <dt>${t('Quyền thử nghiệm sandbox')}</dt><dd>${onOff(st.sandbox_tester_access)}</dd>
           <dt>${t('Ưu đãi khi đăng ký (ngày)')}</dt><dd>${so(st.signup_promo_days)}</dd>
         </dl>
@@ -1760,6 +2454,60 @@
       </div>`;
   }
 
+  // ---------------------------------------------------------------- NƯỚC CHỈ TRỰC TUYẾN (133 / 151)
+  // Ở các nước này HIMO chỉ nhận sự kiện trực tuyến. Xem: mọi quản trị viên; thêm / bỏ: chỉ owner, lý do + xác thực hai lớp,
+  // máy chủ ghi nhật ký cả lần bị từ chối (admin_nhay_cam). admin_nuoc_han_che_dat TRẢ {error} chứ không ném lỗi.
+  async function renderNuoc(main) {
+    main.innerHTML = dangTai;
+    const phu = t('Ở những nước này HIMO chỉ nhận sự kiện trực tuyến, vì quan hệ đồng giới bị coi là tội hình sự (danh sách của Human Dignity Trust, 66 nơi). Đổi danh sách là một quyết định chính sách: chỉ chủ dự án (owner) làm được, cần lý do và xác thực hai lớp, và mọi thay đổi đều được ghi nhật ký.');
+    let rows;
+    try { rows = await rpc('admin_nuoc_han_che_ds'); }
+    catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Nước chỉ trực tuyến'), esc(phu), canBanVa151()); return; } throw e; }
+    rows = rows || [];
+    main.innerHTML = khung(t('Nước chỉ trực tuyến'), esc(phu), `
+      <div class="card scrollx">
+        <div class="sec"><h2>${t('Danh sách')}</h2><span class="hint">${so(rows.length)} ${t('nước / vùng')}</span></div>
+        <table class="tbl"><thead><tr><th>${t('Mã')}</th><th>${t('Nước')}</th><th>${t('Ghi chú')}</th><th class="num">${t('Sự kiện tại chỗ')}</th><th></th></tr></thead>
+        <tbody>${rows.length ? rows.map((r) => `<tr><td><code>${esc(r.quoc_gia)}</code></td><td>${esc(tenNuoc(r.quoc_gia))}</td><td>${esc(r.ghi_chu || '')}</td>
+          <td class="num">${r.so_su_kien ? `<span class="tag warn" title="${esc(t('Sự kiện tại chỗ đã tạo ở nước này (thường là trước khi nước được thêm vào danh sách)'))}">${so(r.so_su_kien)}</span>` : '0'}</td>
+          <td><button class="btn sm danger" data-bo="${esc(r.quoc_gia)}" aria-label="${esc(t('Bỏ') + ' ' + r.quoc_gia)}">${t('Bỏ')}</button></td></tr>`).join('')
+          : `<tr><td colspan="5"><div class="empty">${t('Danh sách đang trống.')}</div></td></tr>`}</tbody></table>
+      </div>
+      <div class="card stack" style="gap:8px">
+        <h2>${t('Thêm một nước')}</h2>
+        <div class="filters">
+          <input id="nMa" maxlength="2" placeholder="${esc(t('Mã 2 chữ, vd. UG'))}" aria-label="${esc(t('Mã nước (ISO 3166-1, 2 chữ)'))}" autocomplete="off" style="width:150px;text-transform:uppercase">
+          <input id="nGhiChu" maxlength="200" placeholder="${esc(t('Ghi chú (nguồn, ngày cập nhật)'))}" aria-label="${esc(t('Ghi chú'))}" autocomplete="off">
+          <button class="btn primary" id="nThem">${t('Thêm')}</button>
+        </div>
+        <div class="hint" id="nTen" aria-live="polite"></div>
+      </div>`);
+    $('#nMa').oninput = () => { const v = $('#nMa').value.trim().toUpperCase(); $('#nTen').textContent = /^[A-Z]{2}$/.test(v) ? tenNuoc(v) : ''; };
+    $('#nThem').onclick = () => {
+      const ma = $('#nMa').value.trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(ma)) { toast(t('Mã nước phải gồm 2 chữ cái (ISO 3166-1), ví dụ UG.'), true); $('#nMa').focus(); return; }
+      datNuoc(ma, true, $('#nGhiChu').value.trim());
+    };
+    main.querySelectorAll('[data-bo]').forEach((b) => b.addEventListener('click', () => datNuoc(b.dataset.bo, false, null)));
+  }
+  async function datNuoc(ma, them, ghiChu) {
+    if (dangGui) return;
+    const ten = `${ma} (${tenNuoc(ma)})`;
+    const lyDo = await hoiLyDoViec(them ? `${t('Thêm nước chỉ trực tuyến')}: ${ten}` : `${t('Bỏ nước chỉ trực tuyến')}: ${ten}`,
+      them ? t('Từ nay ở nước này HIMO chỉ nhận sự kiện trực tuyến. Sự kiện tại chỗ đã có không tự đổi.')
+        : t('Từ nay ở nước này HIMO nhận cả sự kiện tại chỗ. Chỉ bỏ khi nguồn tin cậy xác nhận luật đã đổi.'),
+      them ? t('Thêm') : t('Bỏ'), !them);
+    if (!lyDo) return;
+    dangGui = true;
+    try {
+      const d = await goiNhayCam('admin_nuoc_han_che_dat', { p_quoc_gia: ma, p_them: them, p_ly_do: lyDo, p_ghi_chu: ghiChu || null },
+        { forbidden: t('Chỉ chủ dự án (owner) đổi được danh sách này.') });
+      if (d) { toast(them ? `${t('Đã thêm')} ${ma}` : `${t('Đã bỏ')} ${ma}`); await render(); }
+    } catch (e) {
+      toast(/invalid/.test((e && e.message) || '') ? t('Mã nước phải gồm 2 chữ cái (ISO 3166-1), ví dụ UG.') : loiQuanTri(e), true);
+    } finally { dangGui = false; }
+  }
+
   // ---------------------------------------------------------------- NHẬT KÝ
   async function renderLog(main) {
     const f = state.nk;
@@ -1767,7 +2515,8 @@
       <div><h1>${t('Nhật ký')}</h1><p class="sub">${t('Mọi hành động của mọi quản trị viên, kể cả mỗi lần mở nội dung riêng và mỗi lần bị từ chối. Không ai sửa hay xoá được nhật ký này; máy chủ chỉ tự xoá dòng cũ hơn thời hạn lưu (mặc định 2 năm).')}</p></div>
       <div class="filters">
         <input id="lQ" placeholder="${t('Tên người, ghi chú…')}" value="${esc(f.q)}" autocomplete="off">
-        <select id="lAct">${[['all', `${t('Mọi loại')}`], ['xem', `${t('Xem nội dung riêng')}`], ['tu_choi', `${t('Bị từ chối')}`], ['report', `${t('Xử lý báo cáo')}`], ['status', `${t('Khoá / mở khoá')}`], ['photo', `${t('Duyệt ảnh')}`], ['content', `${t('Gỡ nội dung')}`], ['warn', `${t('Cảnh cáo')}`], ['delete', `${t('Xoá tài khoản')}`], ['ADMIN_ROLE', `${t('Đổi vai trò quản trị')}`], ['billing', `${t('Thanh toán (thủ công)')}`]].map(([k, l]) => `<option value="${k}" ${f.action === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select id="lAct">${[['all', `${t('Mọi loại')}`], ['xem', `${t('Xem nội dung riêng')}`], ['tu_choi', `${t('Bị từ chối')}`], ['report', `${t('Xử lý báo cáo')}`], ['status', `${t('Khoá / mở khoá')}`], ['photo', `${t('Duyệt ảnh')}`], ['content', `${t('Gỡ nội dung')}`], ['warn', `${t('Cảnh cáo')}`], ['delete', `${t('Xoá tài khoản')}`], ['ADMIN_ROLE', `${t('Đổi vai trò quản trị')}`], ['billing', `${t('Thanh toán (thủ công)')}`],
+          ['ADMIN_HIDE_EVENT', `${t('Ẩn sự kiện')}`], ['ADMIN_RESTORE_EVENT', `${t('Hiện lại sự kiện')}`], ['ADMIN_RESTRICT_COUNTRY', `${t('Thêm nước chỉ trực tuyến')}`], ['ADMIN_UNRESTRICT_COUNTRY', `${t('Bỏ nước chỉ trực tuyến')}`]].map(([k, l]) => `<option value="${k}" ${f.action === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       </div>
       <div class="list card" id="lList" style="padding:4px 12px"><div class="skeleton"></div></div>
       <div class="pager" id="lPager"></div></div>`;
@@ -1800,6 +2549,9 @@
   async function showLogin(msg) {
     clearInterval(autoTimer); autoTimer = null;
     clearInterval(freshTimer); freshTimer = null;
+    // Rà soát 15/11: hộp thoại / ảnh phóng to nằm NGOÀI #app — đóng hết, bỏ URL có chữ ký đã nhớ, để hội thoại / ảnh riêng đang mở
+    // không còn nằm trên màn đăng nhập sau khi tự đăng xuất vì bỏ máy.
+    closeModal(); dongAnhTo(); urlCache.clear(); $('#toast').hidden = true;
     $('#app').hidden = true; $('#login').hidden = false;
     // Bỏ nội dung đã tải: thay #main bằng một ô rỗng mới, để một lượt vẽ còn dở (đang chờ máy chủ) có xong muộn cũng chỉ ghi vào
     // ô cũ đã tách khỏi trang — không còn dữ liệu của phiên trước nằm trong trang sau khi đăng xuất.
@@ -1853,6 +2605,12 @@
   veNgonNgu(); veManDangNhap();
   document.documentElement.lang = lang;
 
+  // Rà soát 15/11: phiên bị thu hồi / làm mới hỏng / đăng xuất ở nơi khác → về màn đăng nhập (đóng hết hộp thoại, bỏ URL đã nhớ),
+  // thay vì ở lại trong trang với mọi khung báo "Không có quyền…".
+  sb.auth.onAuthStateChange((ev) => {
+    if (ev === 'SIGNED_OUT' && !$('#app').hidden) showLogin(t('Phiên đăng nhập đã kết thúc. Đăng nhập lại.'));
+  });
+
   (async () => {
     const { data } = await sb.auth.getSession();
     if (data.session) {
@@ -1869,5 +2627,5 @@
 /* CSP: không còn handler inline (script-src 'self'). Nút "Tải lại" trong thông báo lỗi dùng data-reload. */
 document.addEventListener('click', function (e) {
   var t = e.target && e.target.closest ? e.target.closest('[data-reload]') : null;
-  if (t) location.reload();
+  if (t) document.dispatchEvent(new CustomEvent('himo-tai-lai'));
 });

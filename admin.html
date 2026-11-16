@@ -12,13 +12,15 @@
      admin.js tự thoát khi bị nhúng trong khung (GitHub Pages không đặt được header).
      Mã chỉ được tải từ chính trang này (script-src 'self', không inline, không CDN):
      supabase-js được tự lưu trữ và ghim phiên bản 2.115.0 (cùng tệp với website);
-     phần mã của trang nằm trong admin.js / admin-en.js / admin-en1.js. -->
+     phần mã của trang nằm trong admin.js / admin-en.js / admin-en1.js.
+     media-src (151): tin thoại / video của tin bị báo cáo và Story chờ quét — URL có chữ ký từ đúng máy chủ đó. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'none';
   script-src 'self';
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src https://fonts.gstatic.com data:;
   img-src 'self' data: blob: https://ygestzkubyhprsiuzhmi.supabase.co;
+  media-src https://ygestzkubyhprsiuzhmi.supabase.co;
   connect-src https://ygestzkubyhprsiuzhmi.supabase.co wss://ygestzkubyhprsiuzhmi.supabase.co;
   form-action 'none';
   base-uri 'none';
@@ -42,7 +44,7 @@ a{color:var(--primary)}button{font:inherit;cursor:pointer}input,textarea,select{
 .brand small{font-weight:600;color:var(--soft);font-size:13px;margin-left:2px;white-space:nowrap}
 .who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--soft);min-width:0}
 .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:520px){.who span{display:none}}
+@media(max-width:520px){#whoEmail{display:none}}   /* rà soát 15/11: trước đây ẩn cả nút ngôn ngữ */
 .langsw{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;flex:none}
 .lang{background:transparent;border:0;padding:4px 8px;font-size:11.5px;font-weight:800;color:var(--soft);letter-spacing:.03em}
 .lang.on{background:var(--ink);color:var(--ground)}
@@ -204,6 +206,8 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 @media(min-width:640px){.modal{border-radius:18px}}
 .modal h2{margin-bottom:6px}.modal p{margin:0 0 12px;color:var(--mid);font-size:14px}
 .modal.rong{max-width:760px;max-height:88vh;overflow:auto}
+.modal{max-height:88dvh;overflow:auto}   /* rà soát 15/11: bàn phím điện thoại không che nút */
+.mo-khan img,.mo-khan video,.mo-khan .anh-rieng{filter:blur(24px)}.mo-khan{cursor:pointer}   /* rà soát 15/11: nội dung báo cáo mức 1 mờ tới khi chạm */
 .msg{border-bottom:1px solid var(--line);padding:8px 0;font-size:14px}.msg .who{font-weight:700}.msg .when{color:var(--mid);font-size:12px;margin-left:6px}
 .msg .body{white-space:pre-wrap;word-break:break-word;margin-top:2px}
 .anh-rieng{display:inline-block;width:120px;height:120px;border-radius:10px;background:var(--line);margin:4px;object-fit:cover;vertical-align:top}
@@ -280,6 +284,80 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .likers .av{width:30px;height:30px;border-radius:999px;font-size:12px}
 .skeleton{height:52px;border-radius:10px;background:linear-gradient(90deg,var(--surface2),var(--surface3),var(--surface2));background-size:200% 100%;animation:sk 1.2s infinite}
 @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* ==== giao diện 15/11/2026: thanh bên trên màn rộng, thẻ thoáng hơn, thẻ "Chân dung người dùng" (167) ==== */
+h1{font-size:24px}
+.card{border-radius:16px;padding:16px 18px}
+.tile{border-radius:14px;padding:14px 16px;transition:transform .12s,box-shadow .12s,border-color .12s}
+.tile[data-go]:hover{transform:translateY(-2px);border-color:var(--line2);box-shadow:0 8px 24px rgba(42,26,16,.10)}
+.tile .v{font-size:28px;font-variant-numeric:tabular-nums}
+.chart,.alertbar{border-radius:14px}
+.sec.lon{margin:10px 0 0}.sec.lon h2{font-size:16px}
+.charts{grid-template-columns:repeat(auto-fill,minmax(205px,1fr))}
+.tab svg{display:none;width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gsec,.gsubs{display:none}
+#lamMoi{padding:6px 9px;min-height:30px;font-size:15px;line-height:1}
+.who .btn{white-space:nowrap;flex:none}
+@media(max-width:520px){.brand small{display:none}.who{gap:6px}}
+@media(min-width:1100px){
+  .wrap{max-width:1520px;padding:0 28px 72px;display:grid;grid-template-columns:232px minmax(0,1fr);column-gap:32px;grid-template-areas:"top top" "nav main";align-items:start}
+  .top{grid-area:top;position:sticky;top:0;z-index:25;background:var(--ground);padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:20px}
+  .gnav{grid-area:nav;position:sticky;top:78px;flex-direction:column;gap:2px;border-bottom:0;margin:0;padding:0 2px 24px;max-height:calc(100vh - 96px);overflow-x:hidden;overflow-y:auto}
+  .snav{display:none!important}
+  #main{grid-area:main;min-width:0}
+  #main>.stack:first-child,#main>.cols{padding-top:0!important}
+  .tab{width:100%;padding:9px 12px;border-radius:10px;border-bottom:0;margin:0;gap:10px;text-align:left;flex:none}
+  .tab svg{display:block}
+  .tab .tab-t{flex:1}
+  .tab:hover{background:var(--surface2);color:var(--ink)}
+  .tab[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);border-bottom-color:transparent}
+  .tab[aria-selected=true] svg{color:var(--primary)}
+  .gsec{display:block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:18px 12px 6px}
+  .gsubs{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 20px;padding-left:10px;border-left:1.5px solid var(--line2)}
+  .gsub{border:0;background:none;text-align:left;padding:6px 10px;border-radius:8px;color:var(--soft);font-size:13.5px;font-weight:600}
+  .gsub:hover{background:var(--surface2);color:var(--ink)}
+  .gsub[aria-current=true]{color:var(--primary);background:var(--primary-soft)}
+}
+/* ---- chân dung người dùng (167) */
+.cd-loc{display:flex;flex-direction:column;gap:10px}
+.cd-lr{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start}
+.cd-lb{font-size:11.5px;font-weight:800;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;padding-top:8px}
+@media(max-width:640px){.cd-lr{grid-template-columns:1fr;gap:4px}.cd-lb{padding-top:0}}
+.cd-loc .chip{padding:5px 11px;font-size:12.5px}
+.cd-loc .chip[aria-pressed=true]{background:var(--primary);border-color:var(--primary);color:#fff}
+.cd-loc select{border:1px solid var(--line2);border-radius:999px;padding:5px 10px;background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;min-height:31px;max-width:100%}
+.cd-loc details>summary{cursor:pointer;color:var(--mid);font-size:13px;font-weight:700}
+.cd-ck{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mid);padding:5px 4px}
+.cd-tom{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:13.5px;color:var(--mid);min-height:32px}
+.cd-tom b{font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
+.cd-x{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:var(--primary-soft);color:var(--primary);border:0;padding:5px 11px;font-size:12.5px;font-weight:700}
+.cd-x:hover{filter:brightness(.92)}
+.cd-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:760px){.cd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1560px){.cd-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.cd-rows{display:flex;flex-direction:column;gap:1px}
+.cd-row{display:grid;grid-template-columns:minmax(80px,34%) minmax(0,1fr) 54px 52px;gap:10px;align-items:center;border:0;background:none;color:inherit;text-align:left;padding:5px 6px;border-radius:8px;width:100%;font:inherit;font-size:13px;outline:none}
+button.cd-row{cursor:pointer}
+.cd-row:hover,.cd-row:focus-visible{background:var(--surface2)}
+.cd-row[aria-pressed=true]{background:var(--primary-soft)}
+.cd-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mid)}
+.cd-b{display:block;height:10px;border-radius:5px;background:var(--surface2);overflow:hidden}
+.cd-b i{display:block;height:100%;border-radius:5px}
+.cd-p{font-weight:800;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cd-n{color:var(--soft);font-size:12px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cd-row.it .cd-b{background:repeating-linear-gradient(135deg,var(--surface2) 0 5px,var(--surface3) 5px 10px)}
+.cd-row.it .cd-p{font-weight:600;color:var(--faint)}
+.cd-row.tien{grid-template-columns:minmax(80px,38%) minmax(0,1fr) minmax(64px,auto) 46px}
+.dt-tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.dt-tiles .v{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-tt{display:flex;flex-direction:column;gap:7px;padding:10px 0;border-bottom:1px solid var(--line)}
+.cd-tt:first-child{padding-top:2px}.cd-tt:last-child{border-bottom:0;padding-bottom:2px}
+.cd-tt-h{font-size:12px;font-weight:800;color:var(--soft);text-transform:uppercase;letter-spacing:.05em}
+.cd-stack{display:flex;gap:2px;height:16px;border-radius:8px;overflow:hidden}
+.cd-stack i{display:block;min-width:3px;outline:none}
+.cd-stack i:hover,.cd-stack i:focus-visible{filter:brightness(1.12)}
+.cd-tt-c{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--mid)}
+.cd-tt-c span{display:inline-flex;align-items:center;gap:6px}
+.cd-tt-c b{color:var(--ink);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -308,7 +386,7 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 <div id="app" class="wrap" hidden>
   <header class="top">
     <a class="brand" href="#"><picture><source srcset="logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="logo.svg" alt="HIMO" width="91" height="30"></picture> <small id="appBrand">Quản trị</small></a>
-    <div class="who"><span id="langSw" class="langsw"></span><span id="freshness" class="fresh" title="Trang tự làm mới mỗi phút"></span><span id="whoEmail"></span><button class="btn ghost sm" id="logout">Đăng xuất</button></div>
+    <div class="who"><span id="langSw" class="langsw"></span><span id="freshness" class="fresh" title="Trang tự làm mới mỗi phút"></span><button class="btn ghost sm" id="lamMoi" type="button" title="Làm mới số liệu ngay" aria-label="Làm mới số liệu ngay">↻</button><span id="whoEmail"></span><button class="btn ghost sm" id="logout">Đăng xuất</button></div>
   </header>
   <nav class="gnav" role="tablist" id="gnav"></nav>
   <nav class="snav" id="snav" hidden></nav>
