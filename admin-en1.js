@@ -25,4 +25,8 @@ window.HIMO_EN1 = {
   "ảnh trong chat": "photo in chat",
   "ảnh đang chờ duyệt": "photo awaiting approval",
   "ảnh đại diện": "profile photo",
+  "báo cáo khẩn đã quá 1 giờ": "urgent report past 1 hour",
+  "báo cáo khẩn đang chờ": "urgent report waiting",
+  "báo cáo về chính bạn": "report about you",
+  "việc khác đã chờ quá 24 giờ": "other item waiting over 24 hours",
 };

@@ -1091,10 +1091,10 @@
       const ganDay = o.gan_day || [];
       than = `${canhBao}${kpi}${bieuDo}
         <div class="cd-grid">
-          ${the(t('Theo gói'), t('giao dịch trả tiền trong kỳ'), dtThanh((o.theo_goi || []).map((x) => ({ ten: dtGoi(x.k, x.thoi_han), usd: x.usd, n: x.n }))))}
-          ${the(t('Theo nước'), t('theo vị trí gần nhất của người mua (RevenueCat ghi nhận)'), dtThanh((o.theo_nuoc || []).slice(0, 12).map((x) => ({ ten: dtNuoc(x.k), usd: x.usd, n: x.n })), 'var(--pt-s1)'))}
-          ${the(t('Theo cửa hàng'), '', dtThanh((o.theo_cua_hang || []).map((x) => ({ ten: dtCuaHang(x.k), usd: x.usd, n: x.n })), 'var(--pt-s3)'))}
-          ${the(t('Theo tiền tệ'), t('tiền khách thật sự trả, và quy USD'), dtThanh((o.theo_tien_te || []).slice(0, 12).map((x) => ({ ten: x.k === '?' ? t('Chưa rõ') : `${x.k} · ${dtTien(x.goc, x.k === '?' ? 'USD' : x.k)}`, usd: x.usd, n: x.n })), 'var(--pt-s2)'))}
+          ${the(t('Theo gói'), t('giao dịch trả tiền trong kỳ — gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_goi || []).map((x) => ({ ten: dtGoi(x.k, x.thoi_han), usd: x.usd, n: x.n }))))}
+          ${the(t('Theo nước'), t('vị trí gần nhất của người mua (RevenueCat ghi nhận) — gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_nuoc || []).slice(0, 12).map((x) => ({ ten: dtNuoc(x.k), usd: x.usd, n: x.n })), 'var(--pt-s1)'))}
+          ${the(t('Theo cửa hàng'), t('gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_cua_hang || []).map((x) => ({ ten: dtCuaHang(x.k), usd: x.usd, n: x.n })), 'var(--pt-s3)'))}
+          ${the(t('Theo tiền tệ'), t('tiền khách thật sự trả, và quy USD — gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_tien_te || []).slice(0, 12).map((x) => ({ ten: x.k === '?' ? t('Chưa rõ') : `${x.k} · ${dtTien(x.goc, x.k === '?' ? 'USD' : x.k)}`, usd: x.usd, n: x.n })), 'var(--pt-s2)'))}
           ${thueBao}
         </div>
         ${the(t('Giao dịch gần nhất'), t('25 dòng mới nhất trong kỳ — không gắn với người dùng nào'), ganDay.length ? `<div class="scrollx"><table class="tbl"><thead><tr>

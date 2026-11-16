@@ -143,6 +143,7 @@
     Object.assign(ACTION, {
       ADMIN_HIDE_EVENT: `${t('Ẩn sự kiện')}`, ADMIN_RESTORE_EVENT: `${t('Hiện lại sự kiện')}`,
       ADMIN_RESTRICT_COUNTRY: `${t('Thêm nước chỉ trực tuyến')}`, ADMIN_UNRESTRICT_COUNTRY: `${t('Bỏ nước chỉ trực tuyến')}`,
+      ADMIN_VIEW_BILLING: `${t('Xem thanh toán của một người')}`, ADMIN_APPEAL_DECIDE: `${t('Quyết khiếu nại xử phạt')}`, ADMIN_LEGAL_REQUEST: `${t('Ghi yêu cầu pháp lý')}`,
       ADMIN_VIEW_GROUP_EVIDENCE: `${t('Mở tin bị gỡ khỏi nhóm')}`, ADMIN_DELETE_CONTENT: `${t('Gỡ nội dung')}`,
     });
     Object.assign(KIND, { event: `${t('Sự kiện')}`, event_cover: `${t('Ảnh bìa sự kiện')}`, country: `${t('Quốc gia')}` });
@@ -459,7 +460,9 @@
   }
   /** Xin quyền đọc ảnh riêng (ghi nhật ký) rồi lấy URL có chữ ký. */
   async function moAnhRieng(paths, lyDo) {
-    const d = await goiNhayCam('admin_mo_anh', { p_paths: paths, p_reason: lyDo });
+    let d;
+    try { d = await goiNhayCam('admin_mo_anh', { p_paths: paths, p_reason: lyDo }); }
+    catch (e) { if (!laChuaCo(e)) throw e; d = { cu: true }; }   // máy chủ trước 065: chưa có quyền xem có nhật ký — đọc theo luật cũ của máy chủ đó
     if (!d) return {};
     const out = {};
     for (const pth of paths) { urlCache.delete('f:' + pth); urlCache.delete('t:' + pth); out[pth] = await photoUrl(pth, false, true); }
@@ -559,7 +562,7 @@
   const NHOM = [
     { k: 'tongquan',  ten: 'Tổng quan', subs: [] },
     { k: 'antoan',    ten: 'An toàn',   badge: 'badgeReports', muc: 'Việc hằng ngày',
-      subs: [['baocao', 'Báo cáo'], ['anh', 'Duyệt ảnh'], ['xacminh', 'Xác minh selfie'], ['quetstory', 'Quét Story'], ['phat', 'Đang bị phạt'], ['taipham', 'Bị báo cáo nhiều lần'], ['bangchung', 'Tin bị gỡ khỏi nhóm']] },
+      subs: [['baocao', 'Báo cáo'], ['anh', 'Duyệt ảnh'], ['xacminh', 'Xác minh selfie'], ['quetstory', 'Quét Story'], ['phat', 'Đang bị phạt'], ['khieunai', 'Khiếu nại xử phạt'], ['taipham', 'Bị báo cáo nhiều lần'], ['bangchung', 'Tin bị gỡ khỏi nhóm'], ['phaply', 'Yêu cầu pháp lý']] },
     { k: 'nguoidung', ten: 'Người dùng', subs: [] },
     // 151: số sự kiện cần xử lý có badge riêng ở Nội dung — badge An toàn giữ đúng nghĩa "việc có hạn 24 giờ" (báo cáo + ảnh chờ).
     { k: 'noidung',   ten: 'Nội dung',  badge: 'badgeNoiDung',
@@ -718,6 +721,8 @@
         else if (state.sub === 'bangchung') await renderBangChung(main);
         else if (state.sub === 'xacminh') await renderXacMinh(main);
         else if (state.sub === 'quetstory') await renderQuetStory(main);
+        else if (state.sub === 'khieunai') await renderKhieuNai(main);
+        else if (state.sub === 'phaply') await renderPhapLy(main);
         else await renderAnToan(main);
       } else if (state.nhom === 'nguoidung') await renderUsers(main);
       else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : renderNoiDung(main));
@@ -817,9 +822,17 @@
     const canhBao = [];
     const choAnh = (sf.anh_cho || {});
     const tongAnh = (choAnh.ho_so || 0) + (choAnh.bai || 0) + (choAnh.album || 0);
+    // 171c (Q11): mức 1 có đồng hồ 1 giờ; máy chủ chưa có 171 thì các khoá này không có → không hiện
+    if (sla.muc1_qua_1h > 0) canhBao.push({ m: 'danger', t: `${sla.muc1_qua_1h} ${dem(sla.muc1_qua_1h, 'báo cáo khẩn đã quá 1 giờ')}`, p: `${t('Báo cáo mức 1 (trẻ vị thành niên, ảnh riêng tư bị phát tán, đe doạ) cần xem trước mọi việc khác.')}`, go: 'antoan/baocao' });
+    else if (sla.muc1_mo > 0) canhBao.push({ m: 'danger', t: `${sla.muc1_mo} ${dem(sla.muc1_mo, 'báo cáo khẩn đang chờ')}`, p: `${t('Mức 1 có hạn 1 giờ.')}`, go: 'antoan/baocao' });
     if (sla.qua_24h > 0) canhBao.push({ m: 'danger', t: `${sla.qua_24h} ${dem(sla.qua_24h, 'báo cáo đã quá 24 giờ')}`, p: `${t('Apple xem mốc 24 giờ là cam kết. Xử lý ngay.')}`, go: 'antoan/baocao' });
     else if (sla.tu_18_24h > 0) canhBao.push({ m: 'warn', t: `${sla.tu_18_24h} ${dem(sla.tu_18_24h, 'báo cáo sắp quá 24 giờ')}`, p: `${t('Còn dưới 6 tiếng để xử lý.')}`, go: 'antoan/baocao' });
     else if (s.reports_open > 0) canhBao.push({ m: 'warn', t: `${s.reports_open} ${dem(s.reports_open, 'báo cáo đang chờ')}`, p: sla.gio_lau_nhat != null ? `${t('Cái lâu nhất đã mở')} ${Math.round(sla.gio_lau_nhat)} ${t('giờ — còn trong hạn 24 giờ.')}` : '', go: 'antoan/baocao' });
+    if (sla.ve_minh > 0) canhBao.push({ m: 'warn', t: `${sla.ve_minh} ${dem(sla.ve_minh, 'báo cáo về chính bạn')}`, p: `${t('Bạn không tự xử lý được báo cáo về mình — cần một quản trị viên khác. Các báo cáo này không tính vào đồng hồ 24 giờ của bạn.')}`, go: 'antoan/baocao' });
+    const kh = sla.khac || {}; const khQua = (kh.khieu_nai_anh_qua_24h || 0) + (kh.selfie_qua_24h || 0) + (kh.su_kien_qua_24h || 0);
+    if (khQua > 0) canhBao.push({ m: 'danger', t: `${khQua} ${dem(khQua, 'việc khác đã chờ quá 24 giờ')}`,
+      p: [kh.khieu_nai_anh_qua_24h ? `${kh.khieu_nai_anh_qua_24h} ${t('khiếu nại ảnh')}` : '', kh.selfie_qua_24h ? `${kh.selfie_qua_24h} ${t('selfie chờ duyệt')}` : '', kh.su_kien_qua_24h ? `${kh.su_kien_qua_24h} ${t('sự kiện chờ duyệt')}` : ''].filter(Boolean).join(' · '),
+      go: kh.khieu_nai_anh_qua_24h ? 'antoan/anh' : kh.selfie_qua_24h ? 'antoan/xacminh' : 'noidung/sukien' });
     if (tongAnh > 0) canhBao.push({ m: 'warn', t: `${tongAnh} ${dem(tongAnh, 'ảnh đang chờ duyệt')}`, p: choAnh.gio_lau_nhat ? `${t('Cái lâu nhất đã chờ')} ${Math.round(choAnh.gio_lau_nhat)} ${t('giờ.')}` : '', go: 'antoan/anh' });
     if (!canhBao.length) canhBao.push({ m: 'ok', t: `${t('Không có việc gấp')}`, p: `${t('Mọi báo cáo đã đóng, hàng chờ ảnh trống.')}`, go: 'antoan/baocao' });
 
@@ -983,6 +996,12 @@
           <div class="tile${sla.tu_18_24h ? ' alert' : ''}"><div class="v">${so(sla.tu_18_24h)}</div><div class="l">${t('18–24 giờ')}</div></div>
           <div class="tile${sla.qua_24h ? ' alert' : ''}"><div class="v">${so(sla.qua_24h)}</div><div class="l">${t('đã quá 24 giờ')}</div></div>
         </div>
+        ${sla.muc1_mo != null ? ((kq) => `<div class="tiles" style="margin-top:8px">
+          <div class="tile${sla.muc1_mo ? ' alert' : ''}"><div class="v">${so(sla.muc1_mo)}</div><div class="l">${t('mức 1 (khẩn) đang mở')}</div></div>
+          <div class="tile${sla.muc1_qua_1h ? ' alert' : ''}"><div class="v">${so(sla.muc1_qua_1h)}</div><div class="l">${t('mức 1 đã quá 1 giờ')}</div></div>
+          <div class="tile"><div class="v">${so(sla.ve_minh)}</div><div class="l">${t('về chính bạn (người khác xử lý)')}</div></div>
+          <div class="tile${kq ? ' alert' : ''}"><div class="v">${so(kq)}</div><div class="l">${t('việc khác quá 24 giờ')}</div></div>
+        </div><div class="hint" style="margin-top:6px">${t('Đồng hồ 24 giờ không tính báo cáo về chính bạn. Việc khác = khiếu nại ảnh, selfie chờ duyệt, sự kiện chờ duyệt.')}</div>`)(((sla.khac || {}).khieu_nai_anh_qua_24h || 0) + ((sla.khac || {}).selfie_qua_24h || 0) + ((sla.khac || {}).su_kien_qua_24h || 0)) : ''}
       </div>
       ${bangDem(`${t('Lý do bị báo cáo (30 ngày)')}`, sf.theo_ly_do, REASON)}
       ${bangDem(`${t('Loại nội dung bị báo cáo (30 ngày)')}`, sf.theo_loai, KIND)}
@@ -1087,17 +1106,19 @@
     const img = (p, full) => p ? `<img class="photo" data-photo="${esc(p)}" ${full ? 'data-full' : ''} data-zoom="${esc(p)}" title="${t('Bấm để xem to')}" alt="" style="opacity:0;transition:opacity .2s">` : '';
     // 153 (B3): ảnh RIÊNG của tin nhắn / yêu cầu nhắn tin bị báo cáo — chỉ một nút; mở qua admin_mo_anh (noiMediaTin).
     const anhRieng = (p) => p ? `<button class="btn sm" data-anhrieng="${esc(p)}" style="margin-top:6px">${t('Xem ảnh riêng')}</button>` : '';
+    // 171b (Q6): ảnh album, story, moment bị báo cáo cũng mở qua admin_mo_anh (lý do + hai lớp + nhật ký); story có thể là video
+    const mediaRieng = (p) => (p && /\.(mp4|mov)$/i.test(p) ? `<button class="btn sm" data-video="${esc(p)}" style="margin-top:6px">${t('Xem video')}</button>` : anhRieng(p));
     // Bài đăng và bình luận là nội dung công khai nên mở được trang chi tiết đầy đủ.
     const moRong = (k, id) => id ? `<div class="row" style="margin-top:8px"><a class="btn sm" href="#noidung/${k === 'post' ? 'bai' : 'binhluan'}/${id}">${t('Xem đầy đủ')} ${k === 'post' ? `${t('bài đăng')}` : `${t('bình luận')}`} →</a></div>` : '';
     if (kind === 'post') return `${img(c.image_path, true)}${c.caption ? `<div class="quote">${esc(c.caption)}</div>` : ''}<div class="hint">${t('Trạng thái:')} ${esc(c.status)}${c.moderation_reason ? ' · ' + esc(c.moderation_reason) : ''} · ${esc(fmtDate(c.created_at))}</div>${moRong('post', c.id)}`;
     if (kind === 'comment') return `<div class="quote">${esc(c.body)}</div><div class="hint">${t('Bình luận lúc')} ${esc(fmtDate(c.created_at))}${c.post_image ? ` ${t('dưới bài:')}` : ''}</div>${img(c.post_image)}${moRong('comment', c.id)}`;
     if (kind === 'message') return `${c.recalled_at ? `<div class="quote" style="color:var(--soft)">${t('Tin đã bị thu hồi.')}</div>` : ''}${c.body ? `<div class="quote">${esc(c.body)}</div>` : ''}${anhRieng(c.image_path)}${c.lat != null ? `<div class="hint">${t('Vị trí chia sẻ:')} ${esc(String(Number(c.lat)))}, ${esc(String(Number(c.lng)))}</div>` : ''}${tm}<div class="hint">${t('Gửi lúc')} ${esc(fmtDate(c.created_at))}</div>`;
-    if (kind === 'album') return `${img(c.path, true)}<div class="hint">${t('Trạng thái:')} ${esc(c.status)}${c.moderation_reason ? ' · ' + esc(c.moderation_reason) : ''}</div>`;
+    if (kind === 'album') return `${anhRieng(c.path)}<div class="hint">${t('Trạng thái:')} ${esc(c.status)}${c.moderation_reason ? ' · ' + esc(c.moderation_reason) : ''}</div>`;
     // 083: loại mới
     if (kind === 'group') return `${img(c.photo_path, true)}<div class="quote"><b>${esc(c.title || '')}</b>${c.description ? '<br>' + esc(c.description) : ''}</div><div class="hint">${esc(c.visibility || '')} · ${t('thành viên:')} ${esc(String(c.members ?? ''))}</div>`;
     if (kind === 'message_request') return `${(c.messages || []).map((m) => `<div class="quote">${m.body ? esc(m.body) : ''}</div>${anhRieng(m.image_path)}`).join('') || `<div class="hint">${t('Không còn tin nào.')}</div>`}`;
-    if (kind === 'story') return `${c.removed ? `<div class="quote" style="color:var(--soft)">${t('Story đã bị gỡ.')}</div>` : ''}${(c.media || []).map((p) => img(p, true)).join('')}${(c.texts || []).length ? `<div class="quote">${c.texts.map(esc).join('<br>')}</div>` : ''}<div class="hint">${t('Đăng lúc')} ${esc(fmtDate(c.created_at))} · ${t('đối tượng:')} ${esc(c.audience || '')}${c.active ? ` · <b>${t('đang hiển thị')}</b>` : ''}</div>`;
-    if (kind === 'moment') return `<div class="quote"><b>${esc(c.title || '')}</b></div>${(c.covers || []).map((p) => img(p, false)).join('')}<div class="hint">${t('đối tượng:')} ${esc(c.audience || '')} · ${esc(String(c.items ?? 0))} story</div>`;
+    if (kind === 'story') return `${c.removed ? `<div class="quote" style="color:var(--soft)">${t('Story đã bị gỡ.')}</div>` : ''}${(c.media || []).map(mediaRieng).join('')}${(c.texts || []).length ? `<div class="quote">${c.texts.map(esc).join('<br>')}</div>` : ''}<div class="hint">${t('Đăng lúc')} ${esc(fmtDate(c.created_at))} · ${t('đối tượng:')} ${esc(c.audience || '')}${c.active ? ` · <b>${t('đang hiển thị')}</b>` : ''}</div>`;
+    if (kind === 'moment') return `<div class="quote"><b>${esc(c.title || '')}</b></div>${(c.covers || []).map(mediaRieng).join('')}<div class="hint">${t('đối tượng:')} ${esc(c.audience || '')} · ${esc(String(c.items ?? 0))} story</div>`;
     if (kind === 'group_poll' || kind === 'group_event' || kind === 'follow_request') return `<div class="quote">${esc(snapshot || '—')}</div>`;
     return `${img(c.photo_path, true)}${c.bio ? `<div class="quote">${esc(c.bio)}</div>` : `<div class="hint">${t('Không có giới thiệu.')}</div>`}`;
   }
@@ -1635,6 +1656,7 @@
           <div class="actions">
             <button class="btn" data-rieng="hoithoai">${t('Hội thoại')}<small>${t('Tin nhắn riêng và nhóm')}</small></button>
             <button class="btn" data-rieng="album">${t('Album riêng')}<small>${t('Mọi ảnh trong album')}</small></button>
+            <button class="btn" data-plus>${t('Plus / thanh toán')}<small>${t('Quyền lợi, khuyến mãi, sự kiện')}</small></button>
           </div></div>` : ''}
         ${u && u.id && !u.deleted ? `<div class="card stack" style="gap:8px" id="dtCard" hidden><h2>${t('Tên hiển thị & @username')}</h2>
           <p class="hint" style="margin:0">${t('Luật: tên hiển thị 30 ngày một lần, @username 60 ngày một lần — Free và Plus như nhau. Chỉ mở ngoại lệ khi có lý do an toàn đã kiểm chứng (quấy rối, lộ thông tin cá nhân, mạo danh).')}</p>
@@ -1643,6 +1665,7 @@
       </div>`;
     $('#paneClose', pane).addEventListener('click', () => nav('nguoidung'));
     pane.querySelectorAll('[data-rieng]').forEach((b) => b.addEventListener('click', () => (b.dataset.rieng === 'album' ? xemAlbumRieng(u) : xemHoiThoai(u)).catch((e) => toast(friendly(e), true))));
+    pane.querySelectorAll('[data-plus]').forEach((b) => b.addEventListener('click', () => xemPlus(u).catch((e) => toast(friendly(e), true))));   // 172a
     pane.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => userAction(u, b.dataset.act)));
     hydratePhotos(pane); noiXemAnh(pane);
     if ($('#dtCard', pane)) { $('#dtCho', pane).addEventListener('click', () => choDoiTen(u, pane)); veDoiTen(u, pane); }
@@ -2535,6 +2558,202 @@
     } finally { dangGui = false; }
   }
 
+  // ---------------------------------------------------------------- 172: PLUS THEO TỪNG NGƯỜI · KHIẾU NẠI XỬ PHẠT · YÊU CẦU PHÁP LÝ
+  // Máy chủ chưa có 172 (PGRST202) → một dòng báo ngắn, các mục khác vẫn chạy. Mọi quyết định (quyền, hai lớp, nhật ký) nằm ở máy chủ.
+  const canBanVa172 = () => `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 172')}</b><br>${t('Công cụ này cần supabase/172-quan-tri-cong-cu.sql (172 cần 063 và 065). Các thẻ khác chạy như cũ.')}</div></div>`;
+  const loi172 = () => ({ already_decided: t('Khiếu nại này đã được quyết.'), not_found: t('Không tìm thấy.') });
+  const ngay172 = (ts) => (ts ? esc(fmtDate(ts)) : '—');
+
+  /** 172a (Q9): thanh toán của MỘT người — hỏi lý do (máy chủ ghi nhật ký), hiện quyền lợi cửa hàng, khuyến mãi, sự kiện gần nhất.
+   *  Chủ dự án cấp / thu khuyến mãi ngay tại đây (hai lớp + lý do). */
+  async function xemPlus(u) {
+    const lyDo = await hoiLyDo(`${t('Plus / thanh toán của')} ${u.display_name || ''}`); if (!lyDo) return;
+    let d;
+    try { d = await goiNhayCam('admin_plus_nguoi', { p_user: u.id, p_ly_do: lyDo }); }
+    catch (e) { if (laChuaCo(e)) { toast(t('Máy chủ chưa có bản vá 172'), true); return; } throw e; }
+    if (!d) return;
+    const ql = d.quyen_loi || [], km = d.khuyen_mai || [], sk = d.su_kien || [];
+    const tagKm = (g) => (g.thu_luc ? `<span class="tag">${t('đã thu')}</span>` : g.dang_hieu_luc ? `<span class="tag ok">${t('đang hiệu lực')}</span>` : `<span class="tag">${t('hết hạn')}</span>`);
+    const chiOwner = { forbidden: t('Chỉ chủ dự án (owner) cấp hoặc thu được khuyến mãi.') };
+    modalRong(`<h2>${t('Plus / thanh toán của')} ${esc(u.display_name || '')}</h2>
+      <p>${t('Đã ghi nhật ký.')} ${t('Plus tới:')} <b>${ngay172(d.plus_until)}</b>${d.la_tester ? ` <span class="tag">${t('tài khoản thử thanh toán')}</span>` : ''}</p>
+      <div class="sec"><h2>${t('Quyền lợi từ cửa hàng')}</h2></div>
+      <div class="list">${ql.length ? ql.map((e) => `<div class="item" style="cursor:default"><span class="t"><span class="n">${esc(e.san_pham)} · ${esc(e.cua_hang)}${e.moi_truong === 'SANDBOX' ? ' <span class="tag warn">sandbox</span>' : ''}</span>
+        <span class="s" style="white-space:normal">${t('hết hạn')} ${ngay172(e.het_han)} · ${e.tu_gia_han ? t('tự gia hạn') : t('không gia hạn')}${e.hoan_tien_luc ? ` · <b style="color:var(--danger)">${t('đã hoàn tiền')} ${ngay172(e.hoan_tien_luc)}</b>` : ''}${e.loi_thanh_toan_luc ? ` · <b style="color:var(--danger)">${t('lỗi thanh toán từ')} ${ngay172(e.loi_thanh_toan_luc)}</b>` : ''}</span></span></div>`).join('') : `<div class="empty">${t('Chưa mua gói nào.')}</div>`}</div>
+      <div class="sec"><h2>${t('Khuyến mãi')}</h2></div>
+      <div class="list">${km.length ? km.map((g) => `<div class="item" style="cursor:default"><span class="t"><span class="n">${esc(g.loai)} ${tagKm(g)}</span>
+        <span class="s" style="white-space:normal">${ngay172(g.tu)} → ${ngay172(g.den)}${g.ly_do ? ' · ' + esc(g.ly_do) : ''}</span></span>
+        ${d.quyen_cap && !g.thu_luc ? `<button class="btn sm danger" data-thu-km="${esc(g.id)}">${t('Thu')}</button>` : ''}</div>`).join('') : `<div class="empty">${t('Chưa có khuyến mãi nào.')}</div>`}</div>
+      ${d.quyen_cap ? `<div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <select id="pLoai"><option value="support">${t('Hỗ trợ (support)')}</option><option value="compensation">${t('Đền bù (compensation)')}</option></select>
+        <input class="text" id="pNgay" type="number" min="1" max="366" value="30" style="width:90px"> <span class="hint">${t('ngày')}</span>
+        <button class="btn primary" id="pCap">${t('Cấp Plus')}</button></div>` : `<div class="hint" style="margin-top:8px">${chiOwner.forbidden}</div>`}
+      <div class="sec"><h2>${t('Sự kiện thanh toán gần nhất')}</h2></div>
+      <div class="list">${sk.length ? sk.map((ev) => `<div class="item" style="cursor:default"><span class="t"><span class="n">${esc(ev.loai)}${ev.moi_truong === 'SANDBOX' ? ' <span class="tag warn">sandbox</span>' : ''}</span>
+        <span class="s" style="white-space:normal">${ngay172(ev.nhan_luc)} · ${esc(ev.trang_thai)}${ev.loi ? ` · <b style="color:var(--danger)">${esc(ev.loi)}</b>` : ''}</span></span></div>`).join('') : `<div class="empty">${t('Chưa có sự kiện nào.')}</div>`}</div>
+      <div class="actions"><button class="btn" id="pDong">${t('Đóng')}</button></div>`, (m) => {
+      m.querySelector('#pDong').onclick = closeModal;
+      const cap = m.querySelector('#pCap');
+      if (cap) cap.onclick = async () => {
+        const loai = m.querySelector('#pLoai').value, ngay = Number(m.querySelector('#pNgay').value);
+        if (!(ngay >= 1 && ngay <= 366)) { toast(t('Số ngày phải từ 1 tới 366.'), true); return; }
+        const ld = await hoiLyDoViec(`${t('Cấp Plus')} ${ngay} ${t('ngày')}: ${u.display_name || ''}`, t('Người này có HIMO Plus tới hết thời hạn cấp. Việc cấp được ghi vào nhật ký kèm tên bạn.'), t('Cấp Plus'));
+        if (!ld) return;
+        const kq = await goiNhayCam('admin_plus_cap', { p_user: u.id, p_loai: loai, p_ngay: ngay, p_ly_do: ld }, chiOwner);
+        if (kq) toast(`${t('Đã cấp Plus tới')} ${fmtDate(kq.plus_until)}`);
+      };
+      m.querySelectorAll('[data-thu-km]').forEach((b) => { b.onclick = async () => {
+        const id = b.dataset.thuKm;
+        const ld = await hoiLyDoViec(`${t('Thu khuyến mãi của')} ${u.display_name || ''}`, t('Khuyến mãi này hết hiệu lực ngay; Plus của người này được tính lại. Việc thu được ghi vào nhật ký kèm tên bạn.'), t('Thu'), true);
+        if (!ld) return;
+        const kq = await goiNhayCam('admin_plus_thu', { p_id: id, p_ly_do: ld }, chiOwner);
+        if (kq) toast(t('Đã thu khuyến mãi.'));
+      }; });
+    });
+  }
+
+  /** 172b (Q14): khiếu nại việc bị khoá / cấm / gỡ nội dung. Chấp nhận KHÔNG tự gỡ khoá — mở trang người dùng để gỡ. */
+  async function renderKhieuNai(main) {
+    const phu = t('Người dùng khiếu nại việc bị khoá, bị cấm hoặc bị gỡ nội dung. Chấp nhận khiếu nại KHÔNG tự gỡ khoá hay trả nội dung — mở trang người dùng để làm việc đó.');
+    const loc = state.kn || 'open';
+    main.innerHTML = dangTai;
+    let d;
+    try { d = await goiNhayCam('admin_khieu_nai_ds', { p_trang_thai: loc, p_limit: 100, p_offset: 0 }); }
+    catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Khiếu nại xử phạt'), esc(phu), canBanVa172()); return; } throw e; }
+    if (!d) { main.innerHTML = khung(t('Khiếu nại xử phạt'), esc(phu), `<div class="empty">${t('Vai trò của bạn không có quyền này.')}</div>`); return; }
+    const LOAI = { suspend: t('Bị tạm khoá'), ban: t('Bị khoá vĩnh viễn'), content: t('Nội dung bị gỡ') };
+    const TT = { open: t('Đang mở'), accepted: t('Đã chấp nhận'), rejected: t('Đã bác'), all: t('Tất cả') };
+    const ds = d.ds || [];
+    main.innerHTML = khung(t('Khiếu nại xử phạt'), esc(phu), `
+      <div class="tiles">
+        <div class="tile${d.mo ? ' alert' : ''}"><div class="v">${so(d.mo)}</div><div class="l">${t('đang mở')}</div></div>
+        <div class="tile${d.mo_qua_24h ? ' alert' : ''}"><div class="v">${so(d.mo_qua_24h)}</div><div class="l">${t('đã chờ quá 24 giờ')}</div></div>
+      </div>
+      <div class="filters"><select id="knLoc">${Object.keys(TT).map((k) => `<option value="${k}"${k === loc ? ' selected' : ''}>${TT[k]}</option>`).join('')}</select></div>
+      <div class="list card" style="padding:4px 12px">${ds.length ? ds.map((k) => `
+        <div class="item" style="cursor:default"><span class="t">
+          <span class="n"><a href="#nguoidung/${esc(k.user_id)}" style="font-weight:600">${esc(k.ten || String(k.user_id).slice(0, 8))}</a> <span class="tag">${LOAI[k.loai] || esc(k.loai)}</span>${k.tinh_trang && k.tinh_trang !== 'active' ? ` <span class="tag danger">${esc(MOD[k.tinh_trang] || k.tinh_trang)}</span>` : ` <span class="tag ok">${t('tài khoản đang hoạt động')}</span>`}${k.trang_thai === 'open' && hoursOpen(k.tao_luc) >= 24 ? ` <b style="color:var(--danger)">${t('quá 24 giờ')}</b>` : ''}</span>
+          <span class="s" style="white-space:normal">${esc(k.loi_nhan)}</span>
+          <span class="s">${ngay172(k.tao_luc)} (${esc(ago(k.tao_luc))})${k.noi_dung_id ? ` · ${esc(k.noi_dung_loai)} ${esc(String(k.noi_dung_id).slice(0, 8))}` : ''}</span>
+          ${k.tra_loi ? `<span class="s" style="white-space:normal">${t('Trả lời')}: ${esc(k.tra_loi)}</span>` : ''}</span>
+          ${k.trang_thai !== 'open' ? `<span class="tag${k.trang_thai === 'accepted' ? ' ok' : ''}">${TT[k.trang_thai]}</span>`
+            : k.cua_minh ? `<span class="tag">${t('của chính bạn')}</span>`
+            : `<span class="row" style="gap:6px"><button class="btn sm" data-kn="${esc(k.id)}" data-chap="1">${t('Chấp nhận')}</button><button class="btn sm danger" data-kn="${esc(k.id)}" data-chap="0">${t('Bác')}</button></span>`}
+        </div>`).join('') : `<div class="empty">${t('Không có khiếu nại nào.')}</div>`}</div>`);
+    $('#knLoc').onchange = () => { state.kn = $('#knLoc').value; render(); };
+    main.querySelectorAll('[data-kn]').forEach((b) => b.addEventListener('click', async () => {
+      if (dangGui) return;
+      const chap = b.dataset.chap === '1';
+      const ans = await confirmAction({ title: chap ? t('Chấp nhận khiếu nại') : t('Bác khiếu nại'),
+        text: chap ? t('Người dùng sẽ thấy khiếu nại được chấp nhận kèm lời trả lời. Việc gỡ khoá hoặc trả nội dung bạn làm riêng ở trang người dùng.') : t('Người dùng sẽ thấy khiếu nại bị bác kèm lời trả lời.'),
+        noteLabel: t('Trả lời người dùng (bắt buộc, họ đọc được)'), okLabel: chap ? t('Chấp nhận') : t('Bác'), danger: !chap });
+      if (!ans) return;
+      if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+      dangGui = true;
+      try {
+        const kq = await goiNhayCam('admin_khieu_nai_xu_ly', { p_id: b.dataset.kn, p_chap_nhan: chap, p_tra_loi: ans.note }, loi172());
+        if (kq) { toast(chap ? t('Đã chấp nhận khiếu nại.') : t('Đã bác khiếu nại.')); await render(); }
+      } catch (e) { toast(friendly(e), true); } finally { dangGui = false; }
+    }));
+  }
+
+  /** 172c (Q5): hàng đợi yêu cầu pháp lý — mỗi yêu cầu có hạn; hạn mặc định theo loại là mốc vận hành, sửa được. */
+  async function renderPhapLy(main) {
+    const phu = t('Yêu cầu gỡ nội dung, yêu cầu của cơ quan điều tra, yêu cầu xuất hoặc xoá dữ liệu — mỗi yêu cầu một dòng, có hạn và người phụ trách ghi kết quả.');
+    const loc = state.pl || 'mo';
+    const chiCap = { forbidden: t('Thẻ này mở cho vai senior_moderator trở lên.') };
+    main.innerHTML = dangTai;
+    let d;
+    try { d = await goiNhayCam('admin_phap_ly_ds', { p_loc: loc, p_limit: 100, p_offset: 0 }, chiCap); }
+    catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Yêu cầu pháp lý'), esc(phu), canBanVa172()); return; } throw e; }
+    if (!d) { main.innerHTML = khung(t('Yêu cầu pháp lý'), esc(phu), `<div class="empty">${chiCap.forbidden}</div>`); return; }
+    const LOAI = { take_it_down: t('Ảnh riêng tư bị phát tán (TAKE IT DOWN)'), go_noi_dung: t('Cơ quan nhà nước yêu cầu gỡ nội dung'), co_quan_dieu_tra: t('Cơ quan điều tra'),
+      xuat_du_lieu: t('Xuất dữ liệu cá nhân'), xoa_du_lieu: t('Xoá dữ liệu cá nhân'), khac: t('Khác') };
+    const TT = { moi: t('Mới'), dang_xu_ly: t('Đang xử lý'), xong: t('Xong'), tu_choi: t('Từ chối') };
+    const conLai = (y) => {
+      if (y.trang_thai === 'xong' || y.trang_thai === 'tu_choi') return '';
+      const ms = new Date(y.han).getTime() - Date.now(); const h = Math.abs(ms) / 3600000;
+      const chu = h >= 48 ? `${Math.round(h / 24)} ${t('ngày')}` : `${Math.max(1, Math.round(h))} ${t('giờ')}`;
+      return ms <= 0 ? `<b style="color:var(--danger)">${t('quá hạn')} ${chu}</b>` : h <= 24 ? `<b style="color:var(--danger)">${t('còn')} ${chu}</b>` : `${t('còn')} ${chu}`;
+    };
+    const lienQuan = (y) => {
+      const a = y.nguoi_lien_quan ? `<a href="#nguoidung/${esc(y.nguoi_lien_quan)}">${esc(y.ten_nguoi || String(y.nguoi_lien_quan).slice(0, 8))}</a>` : '';
+      const b = y.bao_cao_id ? `<a href="#antoan/baocao/${esc(y.bao_cao_id)}">${t('báo cáo liên quan')}</a>` : '';
+      return a || b ? `<span class="s">${[a, b].filter(Boolean).join(' · ')}</span>` : '';
+    };
+    const ds = d.ds || [];
+    main.innerHTML = khung(t('Yêu cầu pháp lý'), esc(phu), `
+      <div class="tiles">
+        <div class="tile"><div class="v">${so(d.mo)}</div><div class="l">${t('đang mở')}</div></div>
+        <div class="tile${d.qua_han ? ' alert' : ''}"><div class="v">${so(d.qua_han)}</div><div class="l">${t('đã quá hạn')}</div></div>
+        <div class="tile${d.trong_24h ? ' alert' : ''}"><div class="v">${so(d.trong_24h)}</div><div class="l">${t('hết hạn trong 24 giờ')}</div></div>
+      </div>
+      <div class="card"><div class="sec"><h2>${t('Thêm yêu cầu')}</h2></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <select id="plLoai">${Object.keys(LOAI).map((k) => `<option value="${k}">${LOAI[k]}</option>`).join('')}</select>
+          <input class="text" id="plNguon" placeholder="${t('Ai gửi (cơ quan, người, hộp thư)')}" maxlength="200" style="min-width:220px">
+          <input class="text" id="plSo" placeholder="${t('Số công văn / mã vụ việc')}" maxlength="120" style="min-width:160px">
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+          <label class="hint">${t('Nhận lúc')} <input class="text" id="plNhan" type="datetime-local"></label>
+          <label class="hint">${t('Hạn (để trống = hạn mặc định)')} <input class="text" id="plHan" type="datetime-local"></label>
+          <input class="text" id="plNguoi" placeholder="${t('Mã người dùng liên quan (uuid, nếu có)')}" style="min-width:260px">
+          <input class="text" id="plBaoCao" placeholder="${t('Mã báo cáo liên quan (uuid, nếu có)')}" style="min-width:260px">
+        </div>
+        <textarea class="text" id="plGhiChu" rows="2" maxlength="4000" placeholder="${t('Ghi chú: yêu cầu gì, về nội dung nào')}" style="margin-top:8px;width:100%"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn primary" id="plThem">${t('Thêm')}</button></div>
+        <div class="hint" style="margin-top:6px">${t('Hạn mặc định: ảnh riêng tư bị phát tán 48 giờ · cơ quan nhà nước yêu cầu gỡ 24 giờ · xuất / xoá dữ liệu 30 ngày · còn lại 7 ngày. Đây là mốc vận hành, sửa được cho từng yêu cầu; nghĩa vụ pháp lý cụ thể do luật sư xác định.')}</div>
+      </div>
+      <div class="filters"><select id="plLoc"><option value="mo"${loc === 'mo' ? ' selected' : ''}>${t('Đang mở')}</option><option value="dong"${loc === 'dong' ? ' selected' : ''}>${t('Đã đóng')}</option><option value="tat_ca"${loc === 'tat_ca' ? ' selected' : ''}>${t('Tất cả')}</option></select></div>
+      <div class="list card" style="padding:4px 12px">${ds.length ? ds.map((y) => `
+        <div class="item" style="cursor:default"><span class="t">
+          <span class="n">${LOAI[y.loai] || esc(y.loai)} <span class="tag${y.trang_thai === 'xong' ? ' ok' : ''}">${TT[y.trang_thai] || esc(y.trang_thai)}</span> ${conLai(y)}</span>
+          <span class="s" style="white-space:normal">${esc(y.nguon)}${y.tham_chieu ? ' · ' + esc(y.tham_chieu) : ''} · ${t('nhận')} ${ngay172(y.nhan_luc)} · ${t('hạn')} ${ngay172(y.han)}</span>
+          ${lienQuan(y)}
+          ${y.ghi_chu ? `<span class="s" style="white-space:normal">${esc(y.ghi_chu)}</span>` : ''}
+          ${y.ket_qua ? `<span class="s" style="white-space:normal"><b>${t('Kết quả')}:</b> ${esc(y.ket_qua)}</span>` : ''}</span>
+          ${y.trang_thai === 'moi' || y.trang_thai === 'dang_xu_ly' ? `<span class="row" style="gap:6px;flex-wrap:wrap">
+            ${y.trang_thai === 'moi' ? `<button class="btn sm" data-pl="${esc(y.id)}" data-tt="dang_xu_ly">${t('Nhận xử lý')}</button>` : ''}
+            <button class="btn sm" data-pl="${esc(y.id)}" data-tt="xong">${t('Xong')}</button>
+            <button class="btn sm danger" data-pl="${esc(y.id)}" data-tt="tu_choi">${t('Từ chối')}</button></span>` : ''}
+        </div>`).join('') : `<div class="empty">${t('Không có yêu cầu nào.')}</div>`}</div>`);
+    $('#plLoc').onchange = () => { state.pl = $('#plLoc').value; render(); };
+    const laUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    const gio = (id) => { const v = $(id).value; return v ? new Date(v).toISOString() : null; };
+    $('#plThem').onclick = async () => {
+      if (dangGui) return;
+      const nguon = $('#plNguon').value.trim(), nguoi = $('#plNguoi').value.trim(), bc = $('#plBaoCao').value.trim();
+      if (nguon.length < 2) { toast(t('Ghi ai gửi yêu cầu (ít nhất 2 ký tự).'), true); $('#plNguon').focus(); return; }
+      if ((nguoi && !laUuid(nguoi)) || (bc && !laUuid(bc))) { toast(t('Mã người dùng / mã báo cáo phải là uuid.'), true); return; }
+      const nhan = gio('#plNhan'), han = gio('#plHan');
+      if (han && new Date(han) <= new Date(nhan || Date.now())) { toast(t('Hạn phải sau lúc nhận.'), true); return; }
+      const du = { loai: $('#plLoai').value, nguon, tham_chieu: $('#plSo').value.trim() || null, ghi_chu: $('#plGhiChu').value.trim() || null };
+      if (nhan) du.nhan_luc = nhan;
+      if (han) du.han = han;
+      if (nguoi) du.nguoi_lien_quan = nguoi;
+      if (bc) du.bao_cao_id = bc;
+      const ld = await hoiLyDoViec(t('Thêm yêu cầu pháp lý'), t('Yêu cầu được ghi vào hàng đợi và vào nhật ký quản trị kèm tên bạn.'), t('Thêm'));
+      if (!ld) return;
+      dangGui = true;
+      try {
+        const kq = await goiNhayCam('admin_phap_ly_ghi', { p_id: null, p_du_lieu: du, p_ly_do: ld }, chiCap);
+        if (kq) { toast(`${t('Đã thêm. Hạn:')} ${fmtDate(kq.han)}`); await render(); }
+      } catch (e) { toast(/invalid|22P02|22007|23514/.test(((e && e.message) || '') + ((e && e.code) || '')) ? t('Dữ liệu không hợp lệ — xem lại loại, ngày giờ và các mã.') : friendly(e), true); }
+      finally { dangGui = false; }
+    };
+    main.querySelectorAll('[data-pl]').forEach((b) => b.addEventListener('click', async () => {
+      if (dangGui) return;
+      const tt = b.dataset.tt, dong = tt === 'xong' || tt === 'tu_choi';
+      const ld = await hoiLyDoViec(`${t('Yêu cầu pháp lý')}: ${TT[tt]}`, dong ? t('Ghi kết quả: đã làm gì, trả lời ai, lúc nào. Dòng này được lưu làm kết quả của yêu cầu và vào nhật ký.') : t('Ghi ai nhận xử lý và bước tiếp theo.'), TT[tt], tt === 'tu_choi');
+      if (!ld) return;
+      dangGui = true;
+      try {
+        const kq = await goiNhayCam('admin_phap_ly_ghi', { p_id: b.dataset.pl, p_du_lieu: dong ? { trang_thai: tt, ket_qua: ld } : { trang_thai: tt }, p_ly_do: ld }, chiCap);
+        if (kq) { toast(t('Đã lưu.')); await render(); }
+      } catch (e) { toast(friendly(e), true); } finally { dangGui = false; }
+    }));
+  }
+
   // ---------------------------------------------------------------- NHẬT KÝ
   async function renderLog(main) {
     const f = state.nk;
@@ -2550,7 +2769,13 @@
     const doiLoc = () => { f.q = $('#lQ').value.trim(); f.action = $('#lAct').value; f.trang = 0; nav('hethong/nhatky'); };
     $('#lAct').onchange = doiLoc;
     $('#lQ').onkeydown = (e) => { if (e.key === 'Enter') doiLoc(); };
-    const rows = await rpc('admin_actions_log', { p_q: f.q, p_action: f.action, p_limit: TRANG, p_offset: f.trang * TRANG });
+    let rows;
+    try { rows = await rpc('admin_actions_log', { p_q: f.q, p_action: f.action, p_limit: TRANG, p_offset: f.trang * TRANG }); }
+    catch (e) {   // 171a (Q15): nhật ký chỉ mở cho vai moderator trở lên
+      if (!/forbidden/.test((e && e.message) || '')) throw e;
+      $('#lList').innerHTML = `<div class="alertbar warn"><div><b>${t('Vai trò của bạn không xem được nhật ký')}</b><br>${t('Nhật ký quản trị chỉ mở cho vai moderator trở lên.')}</div></div>`;
+      return;
+    }
     const tong = rows.length ? rows[0].tong : 0;
     $('#lList').innerHTML = rows.length ? rows.map((a) => `
       <div class="item" style="cursor:default">
