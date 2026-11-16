@@ -1526,4 +1526,10 @@ window.HIMO_EN = {
   "Chuyển sang nền sáng": "Switch to light mode",
   "Chuyển sang nền tối": "Switch to dark mode",
   "Máy chủ chưa có chức năng này (thiếu một bản vá SQL).": "The server does not have this feature yet (an SQL patch is missing).",
+  // 170: chiều máy chủ chưa có (production trước 144 / 149)
+  "Máy chủ này chưa có dữ liệu cho mục này": "This server has no data for this section yet",
+  "cần bản vá": "needs patch",
+  "máy chủ chưa có dữ liệu này": "the server has no data for this yet",
+  "Máy chủ chưa có bản vá 170": "The server doesn't have patch 170 yet",
+  "Thẻ này cần hàm admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.": "This tab needs the function admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Every other tab works as before.",
 };

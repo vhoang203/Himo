@@ -2348,7 +2348,7 @@
         dangLoc ? rpc('admin_pt_chan_dung', { p_loc: locChanDung(false) }).catch(() => c.nen) : null]);
     } catch (e) {
       if (laChuaCo(e)) {
-        main.innerHTML = khung(t('Chân dung người dùng'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 167')}</b><br>${t('Thẻ này cần hàm admin_pt_chan_dung (supabase/167-chan-dung-nguoi-dung.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
+        main.innerHTML = khung(t('Chân dung người dùng'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 170')}</b><br>${t('Thẻ này cần hàm admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
         return;
       }
       throw e;

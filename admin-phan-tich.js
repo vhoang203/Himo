@@ -857,6 +857,10 @@
     C = ctx;
     const cd = tt.cd;
     const nen = tt.nen && !tt.nen.it ? tt.nen : null;
+    // 170: chiều mà máy chủ này CHƯA có dữ liệu (cột hồ sơ chưa tồn tại — vd. production trước 144 / 149). Không hiện "0%" cho thứ không đo được.
+    const thieu = new Set([...((o && o.thieu) || []), ...((tt.nen && tt.nen.thieu) || [])]);
+    if (thieu.has('xac_minh') && cd.xac_minh !== 'all') cd.xac_minh = 'all';
+    const chuaCo = (banVa) => `<div class="hint">${t('Máy chủ này chưa có dữ liệu cho mục này')} (${t('cần bản vá')} ${banVa}).</div>`;
     const coLoc = cdLocDangBat(cd);
     const chip = (khoa, k, ten) => `<button type="button" class="chip" data-cd-mang="${khoa}" data-k="${esc(k)}" aria-pressed="${(cd[khoa] || []).includes(k)}">${esc(ten)}</button>`;
     const chon = (khoa, ds) => `<select data-cd-don="${khoa}" aria-label="${esc(ds[0][1])}">${ds.map(([k, l]) => `<option value="${k}" ${cd[khoa] === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
@@ -878,7 +882,7 @@
         ${chon('hoat_dong', [['all', t('Hoạt động: tất cả')], ['24h', t('Hoạt động 24 giờ qua')], ['7d', t('Hoạt động 7 ngày qua')], ['30d', t('Hoạt động 30 ngày qua')], ['ngu', t('Không hoạt động trên 30 ngày')]])}
         ${chon('dang_ky', [['all', t('Đăng ký: mọi lúc')], ['7d', t('Đăng ký 7 ngày qua')], ['30d', t('Đăng ký 30 ngày qua')], ['90d', t('Đăng ký 90 ngày qua')]])}
         ${chon('plus', [['all', t('Plus: tất cả')], ['co', t('Có Plus')], ['khong', t('Không có Plus')]])}
-        ${chon('xac_minh', [['all', t('Xác minh: tất cả')], ['co', t('Đã xác minh')], ['khong', t('Chưa xác minh')]])}</div></div>
+        ${thieu.has('xac_minh') ? '' : chon('xac_minh', [['all', t('Xác minh: tất cả')], ['co', t('Đã xác minh')], ['khong', t('Chưa xác minh')]])}</div></div>
       <details id="cdThem" ${moThem ? 'open' : ''}><summary>${t('Thêm bộ lọc')}</summary><div class="cd-loc" style="margin-top:10px">
         <div class="cd-lr"><span class="cd-lb">${t('Dáng người')}</span><div class="chips">${CD_GIA_TRI.dang_nguoi.map((k) => chip('dang_nguoi', k, cdNhan('dang_nguoi', k))).join('')}</div></div>
         <div class="cd-lr"><span class="cd-lb">${t('Tình trạng')}</span><div class="chips">${CD_GIA_TRI.tinh_trang.map((k) => chip('tinh_trang', k, cdNhan('tinh_trang', k))).join('')}</div></div>
@@ -912,10 +916,11 @@
         ${tile(t('Hoạt động 24 giờ qua'), hd24)}
         ${(hd24.it || hd7.it) ? cdO(t('Hoạt động 7 ngày qua'), '—', '', t('có nhóm dưới 5 người')) : cdO(t('Hoạt động 7 ngày qua'), `${so(cdPct(hd24.n + hd7.n, o.tong))}%`, '', `${so(hd24.n + hd7.n)} ${t('người')}`)}
         ${tile('HIMO Plus', cdLay(o, 'plus', 'co'))}
-        ${tile(t('Đã xác minh'), cdLay(o, 'xac_minh', 'co'))}
+        ${thieu.has('xac_minh') ? cdO(t('Đã xác minh'), '—', '', t('máy chủ chưa có dữ liệu này')) : tile(t('Đã xác minh'), cdLay(o, 'xac_minh', 'co'))}
         ${tile(t('Bật thông báo'), cdLay(o, 'co_tb', 'true'))}
       </div>`;
-      const the1 = (chieu, phu, loc, mau) => the(cdTenChieu(chieu), phu, cdThanh(o, chieu, { loc, chon: loc ? cd[loc] || [] : [], mau }));
+      const the1 = (chieu, phu, loc, mau) => (thieu.has(chieu) ? the(cdTenChieu(chieu), '', chuaCo(chieu === 'mbti' ? '144' : '149'))
+        : the(cdTenChieu(chieu), phu, cdThanh(o, chieu, { loc, chon: loc ? cd[loc] || [] : [], mau })));
       than = `${kpi}
         ${the(t('Tóm tắt nhanh'), t('ba nhóm lớn nhất của mỗi chiều'), cdTomTat(o))}
         <div class="cd-grid">
@@ -932,12 +937,12 @@
           ${the1('hoat_dong', t('lần cuối mở app'), null, 'var(--pt-s2)')}
           ${the1('thang_dang_ky', t('12 tháng gần nhất, giờ UTC'), null, 'var(--pt-s2)')}
           ${the(t('Tài khoản & cài đặt'), t('tỉ lệ trong nhóm đang xem'), `<div class="cd-rows">
-            ${cdTiLe(o, 'HIMO Plus', 'plus', 'co')}${cdTiLe(o, t('Đã xác minh'), 'xac_minh', 'co')}${cdTiLe(o, t('Có ảnh hồ sơ đã duyệt'), 'co_anh', 'true')}
+            ${cdTiLe(o, 'HIMO Plus', 'plus', 'co')}${thieu.has('xac_minh') ? '' : cdTiLe(o, t('Đã xác minh'), 'xac_minh', 'co')}${cdTiLe(o, t('Có ảnh hồ sơ đã duyệt'), 'co_anh', 'true')}
             ${cdTiLe(o, t('Bật thông báo'), 'co_tb', 'true')}${cdTiLe(o, t('Bật ẩn danh'), 'an_danh', 'true')}${cdTiLe(o, t('Tài khoản riêng tư'), 'rieng_tu', 'true')}</div>`)}
         </div>
         ${the(t('Bảng chéo'), t('so hai chiều với nhau — ví dụ vai trò theo từng nước'), `<div class="filters" style="margin-bottom:10px">
-            <select id="cdCheoA" aria-label="${t('Hàng')}">${CD_CHEO.map((k) => `<option value="${k}" ${cd.cheo_a === k ? 'selected' : ''}>${t('Hàng')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
-            <select id="cdCheoB" aria-label="${t('Cột')}">${CD_CHEO.map((k) => `<option value="${k}" ${cd.cheo_b === k ? 'selected' : ''}>${t('Cột')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
+            <select id="cdCheoA" aria-label="${t('Hàng')}">${CD_CHEO.filter((k) => !thieu.has(k)).map((k) => `<option value="${k}" ${cd.cheo_a === k ? 'selected' : ''}>${t('Hàng')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
+            <select id="cdCheoB" aria-label="${t('Cột')}">${CD_CHEO.filter((k) => !thieu.has(k)).map((k) => `<option value="${k}" ${cd.cheo_b === k ? 'selected' : ''}>${t('Cột')}: ${esc(cdTenChieu(k))}</option>`).join('')}</select>
             <span class="chips">${[['hang', t('% theo hàng')], ['cot', t('% theo cột')], ['so', t('Số người')]].map(([k, l]) => `<button type="button" class="chip" data-cd-kieu="${k}" aria-pressed="${(cd.kieu || 'hang') === k}">${l}</button>`).join('')}</span>
           </div>${cdBangCheo(o, cd.kieu || 'hang')}`)}
         <div class="hint">${t('Cách tính: mỗi con số là số hồ sơ đếm trực tiếp trên máy chủ lúc tải, không ước lượng. Mặc định không tính tài khoản bị khoá và tài khoản nội bộ. Nhóm dưới 5 người không hiện số. Xu hướng tính dục và cách xưng hô không bao giờ được đưa vào thống kê.')}</div>`;
