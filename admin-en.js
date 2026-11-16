@@ -1094,7 +1094,7 @@ window.HIMO_EN = {
   "Trang này không tới được ai ngoài chủ của nó. Chủ Story không thấy lý do.": "Nobody but its owner will see this page. The owner does not see the reason.",
   "Trang Story này không còn (đã xoá hoặc đã bị gỡ).": "This Story page no longer exists (deleted or removed).",
   "Cần bản vá 151 trên máy chủ": "Needs migration 151 on the server",
-  "Áp supabase/151-quan-tri-su-kien-thoai.sql trong SQL Editor. Các mục khác vẫn dùng bình thường.": "Apply supabase/151-quan-tri-su-kien-thoai.sql in the SQL Editor. Everything else keeps working.",
+  "Áp supabase/151-quan-tri-su-kien-thoai.sql trong SQL Editor. 151 chỉ áp được khi máy chủ đã có tính năng Sự kiện và kiểm duyệt nhóm (065, 119, 133–141). Các mục khác vẫn dùng bình thường.": "Apply supabase/151-quan-tri-su-kien-thoai.sql in the SQL Editor. 151 can only be applied once the server has Events and group moderation (065, 119, 133–141). Everything else keeps working.",
   "Bị ẩn": "Hidden",
   "Đang hiện": "Visible",
   "Đã huỷ": "Cancelled",
@@ -1434,7 +1434,7 @@ window.HIMO_EN = {
   // 168: thẻ Doanh thu
   "Doanh thu": "Revenue",
   "Máy chủ chưa có bản vá 168": "The server doesn't have patch 168 yet",
-  "Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). Các thẻ khác chạy như cũ.": "This tab needs the revenue ledger and the function admin_doanh_thu (supabase/168-doanh-thu.sql). Every other tab works as before.",
+  "Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). 168 chỉ áp được khi máy chủ đã có phần thanh toán HIMO Plus (063) và phân quyền quản trị (065). Các thẻ khác chạy như cũ.": "This tab needs the revenue ledger and the function admin_doanh_thu (supabase/168-doanh-thu.sql). 168 can only be applied once the server has HIMO Plus billing (063) and admin roles (065). Every other tab works as before.",
   "Chưa rõ": "Unknown",
   "1 tháng": "1 month",
   "3 tháng": "3 months",
@@ -1531,5 +1531,5 @@ window.HIMO_EN = {
   "cần bản vá": "needs patch",
   "máy chủ chưa có dữ liệu này": "the server has no data for this yet",
   "Máy chủ chưa có bản vá 170": "The server doesn't have patch 170 yet",
-  "Thẻ này cần hàm admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.": "This tab needs the function admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Every other tab works as before.",
+  "Thẻ này cần hàm admin_pt_chan_dung. Áp theo thứ tự: 088 (supabase/088-tai-khoan-noi-bo.sql) nếu máy chủ chưa có, rồi 170 (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.": "This tab needs the function admin_pt_chan_dung. Apply in order: 088 (supabase/088-tai-khoan-noi-bo.sql) if the server doesn't have it yet, then 170 (supabase/170-chan-dung-moi-may-chu.sql). Every other tab works as before.",
 };

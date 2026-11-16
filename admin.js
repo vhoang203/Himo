@@ -1934,7 +1934,7 @@
   // ---------------------------------------------------------------- SỰ KIỆN (151)
   // Danh sách cần xử lý (chờ duyệt / bị ẩn / bị báo cáo) + chi tiết. Hiện / Ẩn / gỡ bìa đều cần lý do và được máy chủ ghi
   // nhật ký (admin_actions). Máy chủ chưa có 151 → một dòng báo ngắn, các mục khác vẫn chạy.
-  const canBanVa151 = (them) => `<div class="alertbar warn"><div><b>${t('Cần bản vá 151 trên máy chủ')}</b><br>${them || t('Áp supabase/151-quan-tri-su-kien-thoai.sql trong SQL Editor. Các mục khác vẫn dùng bình thường.')}</div></div>`;
+  const canBanVa151 = (them) => `<div class="alertbar warn"><div><b>${t('Cần bản vá 151 trên máy chủ')}</b><br>${them || t('Áp supabase/151-quan-tri-su-kien-thoai.sql trong SQL Editor. 151 chỉ áp được khi máy chủ đã có tính năng Sự kiện và kiểm duyệt nhóm (065, 119, 133–141). Các mục khác vẫn dùng bình thường.')}</div></div>`;
   /** Lỗi của các hàm quản trị 151 → câu dễ hiểu. */
   function loiQuanTri(e) {
     const m = (e && e.message) || '';
@@ -2348,7 +2348,7 @@
         dangLoc ? rpc('admin_pt_chan_dung', { p_loc: locChanDung(false) }).catch(() => c.nen) : null]);
     } catch (e) {
       if (laChuaCo(e)) {
-        main.innerHTML = khung(t('Chân dung người dùng'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 170')}</b><br>${t('Thẻ này cần hàm admin_pt_chan_dung (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
+        main.innerHTML = khung(t('Chân dung người dùng'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 170')}</b><br>${t('Thẻ này cần hàm admin_pt_chan_dung. Áp theo thứ tự: 088 (supabase/088-tai-khoan-noi-bo.sql) nếu máy chủ chưa có, rồi 170 (supabase/170-chan-dung-moi-may-chu.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
         return;
       }
       throw e;
@@ -2373,7 +2373,7 @@
     try { o = await rpc('admin_doanh_thu', { p_loc: locDoanhThu() }); }
     catch (e) {
       if (laChuaCo(e)) {
-        main.innerHTML = khung(t('Doanh thu'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 168')}</b><br>${t('Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). Các thẻ khác chạy như cũ.')}</div></div>`);
+        main.innerHTML = khung(t('Doanh thu'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 168')}</b><br>${t('Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). 168 chỉ áp được khi máy chủ đã có phần thanh toán HIMO Plus (063) và phân quyền quản trị (065). Các thẻ khác chạy như cũ.')}</div></div>`);
         return;
       }
       throw e;
