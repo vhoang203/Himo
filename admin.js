@@ -190,6 +190,8 @@
     const m = (e && e.message) || String(e);
     if (/mfa_required/.test(m)) return `${t('Cần xác thực hai lớp. Vào Hệ thống → Vận hành để bật.')}`;   // 166c
     if (/reason_required/.test(m)) return `${t('Cần ghi lý do (ít nhất 3 ký tự).')}`;                       // 166c
+    // audit 16/11: máy chủ thiếu một hàm (chưa áp bản vá) → nói rõ, thay vì dòng lỗi kỹ thuật tiếng Anh của PostgREST
+    if ((e && e.code === 'PGRST202') || /Could not find the function/i.test(m)) return `${t('Máy chủ chưa có chức năng này (thiếu một bản vá SQL).')}`;
     if (/unavailable/i.test(m)) return `${t('Không có quyền làm việc này (tài khoản không phải quản trị viên?).')}`;
     if (/Invalid login credentials/i.test(m)) return `${t('Email hoặc mật khẩu không đúng.')}`;
     if (/user_banned|banned/i.test(m)) return `${t('Tài khoản này đang bị khoá.')}`;
