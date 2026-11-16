@@ -33,7 +33,32 @@
     veManDangNhap();                 // nhãn tĩnh: "Quản trị", "Đăng xuất", tiêu đề tab
     if (!$('#app').hidden) render();
   }
+  // ---------------------------------------------------------------- chế độ sáng / tối
+  // Công tắc trên đầu trang (và ở màn đăng nhập). Lựa chọn nằm trong localStorage 'himo-admin-theme' và được admin-giao-dien.js đặt
+  // lên <html data-theme> trước khi trang vẽ. Chưa chọn gì → theo máy. Toàn bộ màu của trang là biến CSS nên đổi là xong ngay.
+  const mauMay = () => { try { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) { return 'light'; } };
+  const mauDangDung = () => { const c = document.documentElement.getAttribute('data-theme'); return c === 'light' || c === 'dark' ? c : mauMay(); };
+  function apDungMau() {
+    const c = document.documentElement.getAttribute('data-theme');
+    // logo: <picture> chọn bản tối theo máy; khi người dùng tự chọn thì ép theo lựa chọn đó
+    document.querySelectorAll('.brand picture source').forEach((s) => { s.media = c === 'dark' ? 'all' : c === 'light' ? 'not all' : '(prefers-color-scheme: dark)'; });
+    const toi = mauDangDung() === 'dark';
+    document.querySelectorAll('.theme-sw').forEach((b) => {
+      b.title = toi ? t('Chuyển sang nền sáng') : t('Chuyển sang nền tối');
+      b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', String(toi));
+    });
+  }
+  function doiMau() {
+    const moi = mauDangDung() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', moi);
+    try { localStorage.setItem('himo-admin-theme', moi); } catch (e) { /* bỏ qua: vẫn đổi cho lần mở này */ }
+    apDungMau();
+  }
+  document.querySelectorAll('.theme-sw').forEach((b) => b.addEventListener('click', doiMau));
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apDungMau); } catch (e) { /* trình duyệt cũ */ }
+
   function veNgonNgu() {
+    apDungMau();                     // nhãn của công tắc theo ngôn ngữ; logo theo chế độ
     ['#langSw', '#langSw2'].forEach((sel) => {
       const el = $(sel); if (!el) return;
       el.innerHTML = ['vi', 'en'].map((l) => `<button class="lang${l === lang ? ' on' : ''}" data-lang="${l}" aria-label="${l === 'vi' ? 'Tiếng Việt' : 'English'}">${l.toUpperCase()}</button>`).join('');

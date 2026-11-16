@@ -27,11 +27,14 @@
   frame-ancestors 'none';
 ">
 <meta name="color-scheme" content="light dark">
+<script src="admin-giao-dien.js"></script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <style>
 :root{--ground:#FBF7F2;--surface:#fff;--surface2:#F5EDE4;--surface3:#ECE1D5;--ink:#1E1712;--mid:#524840;--soft:#82756A;--faint:#A0937F;--line:#EBE1D6;--line2:#D9CCBE;--primary:#C9440E;--primary-ink:#fff;--primary-soft:rgba(201,68,14,.10);--accent:#B8651C;--accent-soft:rgba(184,101,28,.12);--ok:#1E9E58;--ok-soft:rgba(30,158,88,.12);--warn:#B8791A;--warn-soft:rgba(184,121,26,.14);--danger:#D6403A;--danger-soft:rgba(214,64,58,.10);--shadow:0 2px 10px rgba(42,26,16,.06);--overlay:rgba(30,23,18,.45)}
-@media(prefers-color-scheme:dark){:root{--ground:#12100E;--surface:#1B1815;--surface2:#262119;--surface3:#332B23;--ink:#F6F0E8;--mid:#D2C8BC;--soft:#9A8D7F;--faint:#7A6C5E;--line:#2A2420;--line2:#3D332A;--primary:#DE5013;--primary-soft:rgba(222,80,19,.18);--accent:#F2A64B;--accent-soft:rgba(242,166,75,.16);--ok:#4CCB7A;--ok-soft:rgba(76,203,122,.16);--warn:#F5C25B;--warn-soft:rgba(245,194,91,.16);--danger:#FF6B5E;--danger-soft:rgba(255,107,94,.16);--shadow:none;--overlay:rgba(0,0,0,.62)}}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--ground:#12100E;--surface:#1B1815;--surface2:#262119;--surface3:#332B23;--ink:#F6F0E8;--mid:#D2C8BC;--soft:#9A8D7F;--faint:#7A6C5E;--line:#2A2420;--line2:#3D332A;--primary:#DE5013;--primary-soft:rgba(222,80,19,.18);--accent:#F2A64B;--accent-soft:rgba(242,166,75,.16);--ok:#4CCB7A;--ok-soft:rgba(76,203,122,.16);--warn:#F5C25B;--warn-soft:rgba(245,194,91,.16);--danger:#FF6B5E;--danger-soft:rgba(255,107,94,.16);--shadow:none;--overlay:rgba(0,0,0,.62)}}
+:root[data-theme=dark]{--ground:#12100E;--surface:#1B1815;--surface2:#262119;--surface3:#332B23;--ink:#F6F0E8;--mid:#D2C8BC;--soft:#9A8D7F;--faint:#7A6C5E;--line:#2A2420;--line2:#3D332A;--primary:#DE5013;--primary-soft:rgba(222,80,19,.18);--accent:#F2A64B;--accent-soft:rgba(242,166,75,.16);--ok:#4CCB7A;--ok-soft:rgba(76,203,122,.16);--warn:#F5C25B;--warn-soft:rgba(245,194,91,.16);--danger:#FF6B5E;--danger-soft:rgba(255,107,94,.16);--shadow:none;--overlay:rgba(0,0,0,.62)}
+:root{color-scheme:light dark}:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--ground);color:var(--ink);font-family:"Be Vietnam Pro","Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 a{color:var(--primary)}button{font:inherit;cursor:pointer}input,textarea,select{font:inherit}
@@ -131,7 +134,8 @@ input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
 .axis{display:flex;justify-content:space-between;color:var(--faint);font-size:11px;margin-top:4px}
 /* ---- bảng phân tích (081) */
 :root{--pt-s1:#2a78d6;--pt-s2:#1baf7a;--pt-s3:#6250d6;--pt-sneg:#A0937F}
-@media(prefers-color-scheme:dark){:root{--pt-s1:#3987e5;--pt-s2:#199e70;--pt-s3:#9085e9;--pt-sneg:#7A6C5E}}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pt-s1:#3987e5;--pt-s2:#199e70;--pt-s3:#9085e9;--pt-sneg:#7A6C5E}}
+:root[data-theme=dark]{--pt-s1:#3987e5;--pt-s2:#199e70;--pt-s3:#9085e9;--pt-sneg:#7A6C5E}
 .pt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .pt-head .sub{max-width:760px}
 .pt-tiles{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
@@ -296,6 +300,13 @@ h1{font-size:24px}
 .tab svg{display:none;width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .gsec,.gsubs{display:none}
 #lamMoi{padding:6px 9px;min-height:30px;font-size:15px;line-height:1}
+/* công tắc sáng / tối: nền sáng hiện mặt trăng (bấm → tối), nền tối hiện mặt trời (bấm → sáng) */
+.theme-sw{padding:6px 8px;min-height:30px}
+.theme-sw svg{width:17px;height:17px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.theme-sw .i-sang{display:none}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .theme-sw .i-sang{display:block}:root:not([data-theme=light]) .theme-sw .i-toi{display:none}}
+:root[data-theme=dark] .theme-sw .i-sang{display:block}:root[data-theme=dark] .theme-sw .i-toi{display:none}
+@media(max-width:520px){.fresh{font-size:0;gap:0}}
 .who .btn{white-space:nowrap;flex:none}
 @media(max-width:520px){.brand small{display:none}.who{gap:6px}}
 @media(min-width:1100px){
@@ -366,7 +377,7 @@ button.cd-row{cursor:pointer}
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:12px">
       <a class="brand" href="index.html"><picture><source srcset="logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="logo.svg" alt="HIMO" width="91" height="30"></picture> <small id="lgBrand">Quản trị</small></a>
-      <span id="langSw2" class="langsw"></span>
+      <span class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn ghost sm theme-sw" type="button" title="Đổi nền sáng / tối" aria-label="Đổi nền sáng / tối"><svg class="i-toi" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg><svg class="i-sang" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></button><span id="langSw2" class="langsw"></span></span>
     </div>
     <p class="hint" id="lgHint">Chỉ tài khoản quản trị viên mới vào được. Mọi thao tác đều được ghi lại.</p>
     <form id="loginForm">
@@ -386,7 +397,7 @@ button.cd-row{cursor:pointer}
 <div id="app" class="wrap" hidden>
   <header class="top">
     <a class="brand" href="#"><picture><source srcset="logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="logo.svg" alt="HIMO" width="91" height="30"></picture> <small id="appBrand">Quản trị</small></a>
-    <div class="who"><span id="langSw" class="langsw"></span><span id="freshness" class="fresh" title="Trang tự làm mới mỗi phút"></span><button class="btn ghost sm" id="lamMoi" type="button" title="Làm mới số liệu ngay" aria-label="Làm mới số liệu ngay">↻</button><span id="whoEmail"></span><button class="btn ghost sm" id="logout">Đăng xuất</button></div>
+    <div class="who"><button class="btn ghost sm theme-sw" type="button" title="Đổi nền sáng / tối" aria-label="Đổi nền sáng / tối"><svg class="i-toi" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg><svg class="i-sang" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></button><span id="langSw" class="langsw"></span><span id="freshness" class="fresh" title="Trang tự làm mới mỗi phút"></span><button class="btn ghost sm" id="lamMoi" type="button" title="Làm mới số liệu ngay" aria-label="Làm mới số liệu ngay">↻</button><span id="whoEmail"></span><button class="btn ghost sm" id="logout">Đăng xuất</button></div>
   </header>
   <nav class="gnav" role="tablist" id="gnav"></nav>
   <nav class="snav" id="snav" hidden></nav>

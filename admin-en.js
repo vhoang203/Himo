@@ -1537,4 +1537,7 @@ window.HIMO_EN = {
   "HIMO Plus, quy USD, ước tính theo RevenueCat": "HIMO Plus, in USD, estimated from RevenueCat",
   "ngày qua (gộp)": "days (gross)",
   "người đang trả tiền": "paying subscribers",
+  // công tắc sáng / tối (16/11/2026)
+  "Chuyển sang nền sáng": "Switch to light mode",
+  "Chuyển sang nền tối": "Switch to dark mode",
 };
