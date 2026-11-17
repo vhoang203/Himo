@@ -215,11 +215,22 @@
   const thumbOf = (p) => p.replace(/(\.[A-Za-z0-9]+)$/, '_t$1');
   /** rieng = tệp vừa được cấp quyền xem có ghi nhật ký (admin_mo_anh / bằng chứng): URL sống 120 giây và KHÔNG vào bộ nhớ đệm —
    *  URL có chữ ký là vé ai cầm cũng dùng được, đừng để nó sống lâu hơn việc xem (rà soát 15/11). */
+  /** 182 (16/11/2026): hình dạng an toàn của một đường dẫn tệp — giống ràng buộc SQL 182. createSignedUrl (ký MỘT tệp) đặt đường dẫn
+   *  vào ĐỊA CHỈ yêu cầu; một đường dẫn có "../" do người dùng ghi vào hồ sơ lái yêu cầu mang phiên của quản trị viên sang địa chỉ
+   *  khác (ví dụ hàm xoá tài khoản). Nên: (1) đường dẫn không khớp → không gọi gì; (2) ký THEO LÔ — đường dẫn nằm trong thân JSON. */
+  const DUONG_DAN_TEP = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}){1,5}$/;
+  const duongDanSach = (p) => typeof p === 'string' && p.length <= 300 && DUONG_DAN_TEP.test(p);
   async function photoUrl(path, thumb, rieng) {
     if (!path) return null;
+    if (!duongDanSach(path)) return null;
     const key = (thumb ? 't:' : 'f:') + path;
     const c = rieng ? null : urlCache.get(key); if (c && c.exp > Date.now()) return c.url;
-    const tryPath = async (p) => { const { data, error } = await sb.storage.from('photos').createSignedUrl(p, rieng ? 120 : 600); return error ? null : data.signedUrl; };
+    const tryPath = async (p) => {
+      if (!duongDanSach(p)) return null;
+      const { data, error } = await sb.storage.from('photos').createSignedUrls([p], rieng ? 120 : 600);
+      const d = !error && Array.isArray(data) ? data[0] : null;
+      return d && !d.error && d.signedUrl ? d.signedUrl : null;
+    };
     let url = thumb ? await tryPath(thumbOf(path)) : null;
     if (!url) url = await tryPath(path);
     if (url && !rieng) {
