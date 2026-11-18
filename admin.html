@@ -358,6 +358,20 @@ button.cd-row{cursor:pointer}
 .cd-row.it .cd-b{background:repeating-linear-gradient(135deg,var(--surface2) 0 5px,var(--surface3) 5px 10px)}
 .cd-row.it .cd-p{font-weight:600;color:var(--faint)}
 .cd-row.tien{grid-template-columns:minmax(80px,38%) minmax(0,1fr) minmax(64px,auto) 46px}
+/* ---- doanh thu theo kỳ (202) — chỉ áp TRONG khối .dtk, không đổi kiểu của thẻ nào khác.
+   Chữ phụ và nhãn trục dùng --mid (đủ 4,5:1 trên cả nền sáng lẫn tối); nút đang chọn / nút chính dùng cam đậm cố định để chữ trắng đủ 4,5:1 ở nền tối. */
+.dtk .hint,.dtk .cd-lb,.dtk .tbl th{color:var(--mid)}
+.dtk .pt-dtot{color:color-mix(in srgb,var(--ok) 60%,var(--ink))}.dtk .pt-dxau{color:color-mix(in srgb,var(--danger) 66%,var(--ink))}
+.dtk .pt-ax{fill:var(--mid)}
+.dtk .cd-loc .chip[aria-pressed=true],.dtk .btn.primary{background:#C9440E;border-color:#C9440E;color:#fff}
+.dtk .cd-row.tien{grid-template-columns:minmax(0,1fr) auto;row-gap:6px;padding:7px 6px}
+.dtk .cd-row.tien .cd-l{white-space:normal;overflow:visible;color:var(--ink);font-variant-numeric:tabular-nums}
+.dtk .cd-row.tien .cd-b{grid-column:1 / -1}
+.dtk .cd-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.dtk-mt-t{color:var(--mid);font-size:12px;margin-left:8px;white-space:nowrap}
+.dtk>.card,.dtk>.alertbar{margin-top:12px}
+.dtk .tbl tbody th{font-weight:400;font-size:13.5px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.dtk .sec{flex-wrap:wrap}.dtk .sec h2{white-space:nowrap}
 .dt-tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
 .dt-tiles .v{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cd-tt{display:flex;flex-direction:column;gap:7px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -408,11 +422,11 @@ button.cd-row{cursor:pointer}
 <div id="modalScrim" class="scrim" hidden><div class="modal" id="modal"></div></div>
 <div id="lightbox" class="lightbox" hidden><button class="x" id="lbClose">Đóng</button><img id="lbImg" alt=""></div>
 
-<script src="admin-en.js?v=d993cc5065"></script>
+<script src="admin-en.js?v=896d3dde8b"></script>
 <script src="admin-en1.js?v=c2dc6cf0f0"></script>
 <script src="config.js"></script>
 <script src="supabase-js-2.115.0.umd.js"></script>
-<script src="admin-phan-tich.js?v=63b0b92782"></script>
-<script src="admin.js?v=4b479579d0"></script>
+<script src="admin-phan-tich.js?v=c152f7090f"></script>
+<script src="admin.js?v=077b22f53d"></script>
 </body>
 </html>

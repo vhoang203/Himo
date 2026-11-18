@@ -579,7 +579,7 @@
     { k: 'noidung',   ten: 'Nội dung',  badge: 'badgeNoiDung',
       subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện']] },
     { k: 'phantich',  ten: 'Phân tích', muc: 'Hiểu người dùng',
-      subs: [['chienluoc', 'Chiến lược'], ['chandung', 'Chân dung người dùng'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories'], ['sukien', 'Sự kiện & tin thoại']] },
+      subs: [['chienluoc', 'Chiến lược'], ['chandung', 'Chân dung người dùng'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories'], ['sukien', 'Sự kiện & tin thoại'], ['goiy', 'Gợi ý Nearby']] },
     { k: 'solieu',    ten: 'Số liệu',
       subs: [['tangtruong', 'Tăng trưởng'], ['doanhthu', 'Doanh thu'], ['giuchan', 'Giữ chân'], ['khuvuc', 'Khu vực & ngôn ngữ'], ['nhucau', 'Nhu cầu trả phí']] },
     { k: 'hethong',   ten: 'Hệ thống', muc: 'Kỹ thuật',
@@ -618,7 +618,8 @@
     cd: { quoc_gia: [], tuoi: [], vai_tro: [], dang_nguoi: [], tinh_trang: [], dang_tim: [], ngon_ngu: [], hoat_dong: 'all', dang_ky: 'all',
       plus: 'all', xac_minh: 'all', noi_bo: false, ca_bi_khoa: false, cheo_a: 'quoc_gia', cheo_b: 'vai_tro', kieu: 'hang', moThem: false, nen: null },
     // 168 — Doanh thu: kỳ + bộ lọc. kieu = biểu đồ theo tiền ('tien') hay số giao dịch ('gd').
-    dt: { ngay: 30, moi_truong: 'PRODUCTION', cua_hang: '', san_pham: '', quoc_gia: '', kieu: 'tien' },
+    // 202 — theo kỳ: nhom (ngay | tuan | thang | nam), ky (khoảng dựng sẵn hoặc 'tuy_chon' + tu / den), ss (so sánh), so (số liệu của biểu đồ). Nhớ theo từng quản trị viên.
+    dt: { ngay: 30, moi_truong: 'PRODUCTION', cua_hang: '', san_pham: '', quoc_gia: '', kieu: 'tien', nhom: 'ngay', ky: 'thang_nay', tu: '', den: '', ss: 'khong', so: 'thuc_nhan' },
     nuoc: null,
   };
   const TRANG = 30;
@@ -770,12 +771,21 @@
     if ($('#app').hidden || document.hidden) return false;
     if (!$('#modalScrim').hidden) return false;
     if (state.id) return false;
+    if (state.nhom === 'solieu' && state.sub === 'doanhthu') {      // 202 — khối theo kỳ: đừng vẽ lại dưới tay người đang thao tác
+      const d = state.dt, a0 = document.activeElement;
+      if (d.mtMo && document.getElementById('dtkMtForm')) return false;                    // đang mở ô đặt mục tiêu
+      if (d.loiNgay || d.tuNhap != null || d.denNhap != null) return false;                 // đang nhập dở khoảng tuỳ chọn
+      if (a0 && a0.classList && a0.closest && a0.closest('.dtk') && (a0.classList.contains('pt-bar') || a0.classList.contains('dtk-mt'))) return false;   // tiêu điểm bàn phím đang ở một cột biểu đồ / dòng mục tiêu
+    }
     // Bảng Chiến lược / Chuyên sâu dùng để đọc và suy nghĩ: không tự vẽ lại giữa chừng. Vận hành thì có.
     if (state.nhom === 'phantich' && state.sub !== 'vanhanh' && state.sub !== 'chandung') return false;
     // Quét Story có video đang phát; danh sách nước có ô nhập đang gõ dở: đừng vẽ lại giữa chừng.
     if ((state.nhom === 'antoan' && state.sub === 'quetstory') || (state.nhom === 'hethong' && state.sub === 'nuoc')) return false;
     const a = document.activeElement;
     if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return false;
+    // Kiểm toán 17/11 (K3): vừa chạm / bấm trong 10 giây qua → đừng vẽ lại danh sách dưới tay người đang thao tác (thẻ xê dịch, cú bấm kế
+    // tiếp rơi nhầm đối tượng). Lượt tự làm mới kế tiếp (một phút sau) sẽ chạy khi tay đã rời.
+    if (Date.now() - chamCuoi < 10_000) return false;
     return true;
   }
 
@@ -794,7 +804,11 @@
   const NGHI_MS = 30 * 60_000;
   let chamCuoi = Date.now();
   ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
-    document.addEventListener(ev, () => { chamCuoi = Date.now(); }, { passive: true, capture: true }));
+    document.addEventListener(ev, () => {
+      // Kiểm toán 17/11: máy ngủ thì bộ hẹn 15 giây không chạy — lần chạm đầu sau khi mở máy phải bị xét là "đã bỏ mặc quá 30 phút" trước
+      if (Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }
+      chamCuoi = Date.now();
+    }, { passive: true, capture: true }));
   async function kiemTraBoMac() {
     if (Date.now() - chamCuoi < NGHI_MS) return;
     clearInterval(autoTimer); autoTimer = null;
@@ -815,6 +829,7 @@
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
+    if (Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }   // kiểm toán 17/11: quay lại thẻ sau hơn 30 phút → đăng xuất, không tải dữ liệu mới
     if (Date.now() - lastLoad < 20_000) return;
     if (canAuto()) autoRefresh(true); else { refreshBadges(); showFreshness(); }
   });
@@ -1426,7 +1441,7 @@
   const LY_DO_XM = [['khong_khop', 'Không khớp ảnh đại diện'], ['anh_chup_anh', 'Ảnh chụp lại ảnh / màn hình'], ['khong_ro', 'Ảnh mờ / tối'],
     ['sai_tu_the', 'Sai tư thế'], ['nhieu_nguoi', 'Nhiều người trong ảnh'], ['gia_mao', 'Giả mạo danh tính (giữ selfie 1 năm)'], ['khac', 'Lý do khác']];
   const canBanVa149 = () => `<div class="alertbar warn"><div><b>${t('Cần bản vá 149 trên máy chủ')}</b><br>${t('Áp supabase/149-xac-minh.sql trong SQL Editor. Các mục khác vẫn dùng bình thường.')}</div></div>`;
-  const LOI_XM = { da_xu_ly: t('Lần thử này đã được xử lý.'), can_anh: t('Ảnh đại diện chưa được duyệt — duyệt ảnh trước.'), khong_thay: t('Không tìm thấy lần thử này.'),
+  const LOI_XM = { da_xu_ly: t('Lần thử này đã được xử lý.'), can_anh: t('Ảnh đại diện chưa được duyệt — duyệt ảnh trước.'), khong_thay: t('Không tìm thấy lần thử này.'), anh_da_doi: t('Người này vừa đổi ảnh đại diện — đóng lại, tải lại hàng chờ rồi so lại với ảnh mới.'),
     forbidden: t('Bạn không có quyền kiểm duyệt.') };
 
   async function renderXacMinh(main) {
@@ -1490,7 +1505,7 @@
         if (dangQuyet) return;
         dangQuyet = true; $('#xmDat', m).disabled = true; $('#xmTuChoi', m).disabled = true;
         let k = null;
-        try { k = await goiNhayCam('admin_xac_minh_quyet', { p_id: r.id, p_ket_qua: kq, p_ly_do: kq === 'tu_choi' ? $('#xmLyDo', m).value : null }, LOI_XM); }
+        try { k = await goiNhayCam('admin_xac_minh_quyet', { p_id: r.id, p_ket_qua: kq, p_ly_do: kq === 'tu_choi' ? $('#xmLyDo', m).value : null, p_anh: r.anh_dai_dien || null }, LOI_XM); }   // 187 (K5): máy chủ so với ảnh hiện tại
         finally { if (!k) { dangQuyet = false; $('#xmDat', m).disabled = false; $('#xmTuChoi', m).disabled = false; } }
         if (!k) return;
         closeModal(); toast(kq === 'dat' ? t('Đã duyệt — huy hiệu đã bật.') : t('Đã từ chối — người dùng được báo trong app.')); render();
@@ -2310,7 +2325,20 @@
     main.innerHTML = dangTai;
     let o;
     try {
-      if (state.sub === 'sukien') {
+      if (state.sub === 'goiy') {
+        // 197 — số liệu nội bộ của các ô cuối lưới Nearby (chỉ đọc). Máy chủ chưa có 197 thì báo ngắn, các bảng khác vẫn chạy.
+        // Kỳ của tab này nhớ RIÊNG (gyNgay: 7 / 14 / 30) — không dùng chung với các tab 7 / 30 / 90 ngày.
+        const goiGY = () => rpc('admin_pt_goi_y_nearby', { p_days: state.pt.gyNgay || 14, p_limit: 100, p_offset: state.pt.gyTu || 0 });
+        try {
+          o = await goiGY();
+          // bảng vừa ngắn lại (máy chủ tính lại) trong lúc đang đứng ở một trang không còn dòng nào → lùi về trang cuối còn dòng
+          if (o && Array.isArray(o.top) && !o.top.length && Number(o.top_tong) > 0 && (state.pt.gyTu || 0) > 0) {
+            state.pt.gyTu = Math.floor((Number(o.top_tong) - 1) / 100) * 100;
+            o = await goiGY();
+          }
+        }
+        catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Gợi ý Nearby'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có gói 197')}</b><br>${t('Cần áp supabase/197-nearby-goi-y.sql (sau 096). Các bảng phân tích khác vẫn dùng được.')}</div></div>`); return; } throw e; }
+      } else if (state.sub === 'sukien') {
         // 151 — riêng một khối: máy chủ chưa có 151 thì báo ngắn, không lẫn với lời nhắc 081.
         try { o = await rpc('admin_pt_su_kien', { p_days: state.pt.ngay }); }
         catch (e) { if (laChuaCo(e)) { main.innerHTML = khung(t('Sự kiện & tin thoại'), '', canBanVa151()); return; } throw e; }
@@ -2341,6 +2369,16 @@
     if (state.sub === 'vanhanh') PT.vanHanh(main, o, ctx);
     else if (state.sub === 'chuyensau') PT.chuyenSau(main, o, ctx);
     else if (state.sub === 'stories') PT.stories(main, o, ctx);
+    else if (state.sub === 'goiy') {
+      if (!PT.goiY) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
+      PT.goiY(main, o || {}, ctx);
+      const tu = Number((o || {}).top_tu) || 0;   // lật trang bảng hồ sơ: 100 dòng mỗi trang, số thứ tự tính trên toàn bảng
+      const lat = (moi) => { state.pt.gyTu = moi; state.pt.gyCuon = true; render(); };
+      main.querySelectorAll('.gyTruoc').forEach((b) => b.addEventListener('click', () => lat(Math.max(0, tu - 100))));
+      main.querySelectorAll('.gySau').forEach((b) => b.addEventListener('click', () => lat(tu + 100)));
+      // vừa lật trang: đưa bảng về lại trước mắt (trang vẽ lại từ đầu nên độ cuộn nhảy lên trên)
+      if (state.pt.gyCuon) { state.pt.gyCuon = false; const bang = main.querySelector('#gyBang'); if (bang && bang.scrollIntoView) bang.scrollIntoView({ block: 'start' }); }
+    }
     else if (state.sub === 'sukien') {
       if (!PT.suKien) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
       PT.suKien(main, o || {}, ctx);
@@ -2349,7 +2387,7 @@
       try { uv = await rpc('admin_noi_bo_ung_vien'); } catch (e) { uv = null; }   // candidates are optional
       PT.nguoiThat(main, o, ctx, uv);
     } else PT.chienLuoc(main, o, ctx);
-    main.querySelectorAll('#ptKy .chip').forEach((c) => c.addEventListener('click', () => { state.pt.ngay = Number(c.dataset.d); render(); }));
+    main.querySelectorAll('#ptKy .chip').forEach((c) => c.addEventListener('click', () => { if (state.sub === 'goiy') state.pt.gyNgay = Number(c.dataset.d); else state.pt.ngay = Number(c.dataset.d); render(); }));
   }
 
   // ---------------------------------------------------------------- CHÂN DUNG NGƯỜI DÙNG (167)
@@ -2400,20 +2438,70 @@
     ['cua_hang', 'san_pham', 'quoc_gia'].forEach((k) => { if (c[k]) p[k] = c[k]; });
     return p;
   }
+  // 202 — theo kỳ. Lựa chọn (nhóm, khoảng, so sánh, số liệu) nhớ trên máy theo TỪNG quản trị viên; trình duyệt chặn bộ nhớ thì dùng mặc định.
+  const DT_KY_HOP_LE = { nhom: ['ngay', 'tuan', 'thang', 'nam'], ky: ['thang_nay', 'thang_truoc', 'quy_nay', 'nam_nay', 'nam_truoc', '12_thang', 'tat_ca', 'tuy_chon'],
+    ss: ['khong', 'ky_truoc', 'cung_ky_nam_truoc'], so: ['thuc_nhan', 'gop', 'gd'] };
+  const laNgay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  function napDtKy(uid) {
+    const c = state.dt;
+    if (c.cuaAi === uid) return;
+    c.cuaAi = uid;
+    // Đổi người đăng nhập mà không tải lại trang: về mặc định trước (không thừa hưởng lựa chọn hay ô đặt mục tiêu đang mở của người trước).
+    Object.assign(c, { nhom: 'ngay', ky: 'thang_nay', tu: '', den: '', ss: 'khong', so: 'thuc_nhan', tuNhap: null, denNhap: null, loiNgay: '', dangHoi: false, mtMo: false, mtXacNhan: false, mtLoi: '', mtThap: null, mtCao: null });
+    try {
+      const j = JSON.parse(localStorage.getItem(`himo-admin-dt-ky:${uid}`) || 'null');
+      if (j && typeof j === 'object') {
+        for (const k of Object.keys(DT_KY_HOP_LE)) if (DT_KY_HOP_LE[k].includes(j[k])) c[k] = j[k];
+        if (laNgay(j.tu) && laNgay(j.den) && j.tu <= j.den) { c.tu = j.tu; c.den = j.den; } else if (c.ky === 'tuy_chon') c.ky = 'thang_nay';
+      }
+    } catch (e) { /* trình duyệt chặn bộ nhớ / dữ liệu hỏng: dùng mặc định */ }
+  }
+  function luuDtKy() {
+    const c = state.dt;
+    try { if (c.cuaAi) localStorage.setItem(`himo-admin-dt-ky:${c.cuaAi}`, JSON.stringify({ nhom: c.nhom, ky: c.ky, tu: c.tu, den: c.den, ss: c.ss, so: c.so })); } catch (e) { /* bỏ qua */ }
+  }
+  function locDoanhThuKy() {
+    const c = state.dt, p = { nhom: c.nhom, so_sanh: c.ss, moi_truong: c.moi_truong, tz: muiGio() };
+    if (c.ky === 'tuy_chon' && laNgay(c.tu) && laNgay(c.den)) { p.tu_ngay = c.tu; p.den_ngay = c.den; } else p.ky = c.ky === 'tuy_chon' ? 'thang_nay' : c.ky;
+    ['cua_hang', 'san_pham', 'quoc_gia'].forEach((k) => { if (c[k]) p[k] = c[k]; });
+    return p;
+  }
+  let dtLuot = 0;       // số thứ tự lượt hỏi máy chủ của thẻ Doanh thu — chỉ lượt MỚI NHẤT được vẽ
+  let dtVe = null;      // hàm vẽ lại của lượt MỚI NHẤT đã về — mọi lời "vẽ lại" (kể cả từ một lượt cũ còn dang dở) đều vẽ bằng số mới nhất
+  const dtODay = () => state.nhom === 'solieu' && state.sub === 'doanhthu';
   async function renderDoanhThu(main) {
+    const luot = ++dtLuot;
+    const conDay = () => luot === dtLuot && dtODay();
     if (!main.querySelector('#dtGoc')) main.innerHTML = dangTai;      // đang ở sẵn thẻ này: giữ màn hình tới khi có số mới
     const PT = window.HIMO_PT;
-    let o;
-    try { o = await rpc('admin_doanh_thu', { p_loc: locDoanhThu() }); }
-    catch (e) {
+    try { const { data } = await sb.auth.getSession(); napDtKy((data && data.session && data.session.user && data.session.user.id) || 'chung'); } catch (e) { napDtKy('chung'); }
+    let o, ky;
+    try {
+      // 202: hỏi song song. Máy chủ chưa có hàm theo kỳ → ky = null (thẻ hiện một dòng nhắc, phần cũ chạy như trước); lỗi khác → một dòng báo lỗi trong khối theo kỳ.
+      [o, ky] = await Promise.all([rpc('admin_doanh_thu', { p_loc: locDoanhThu() }),
+        rpc('admin_doanh_thu_ky', { p_loc: locDoanhThuKy() }).catch((e) => (laChuaCo(e) ? null : { error: 'loi' }))]);
+    } catch (e) {
+      if (luot === dtLuot) state.dt.dangHoi = false;
+      if (!conDay()) return;
       if (laChuaCo(e)) {
         main.innerHTML = khung(t('Doanh thu'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa có bản vá 168')}</b><br>${t('Thẻ này cần sổ doanh thu và hàm admin_doanh_thu (supabase/168-doanh-thu.sql). 168 chỉ áp được khi máy chủ đã có phần thanh toán HIMO Plus (063) và phân quyền quản trị (065). Các thẻ khác chạy như cũ.')}</div></div>`);
         return;
       }
       throw e;
     }
+    if (luot === dtLuot) state.dt.dangHoi = false;
+    if (!conDay()) return;       // đã có lượt hỏi mới hơn, hoặc đã sang thẻ khác trong lúc chờ: đừng vẽ đè
     if (!PT || !PT.doanhThu) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
-    PT.doanhThu(main, o, { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc }, { dt: state.dt, doi: (fn) => { fn(state.dt); render(); }, tai: taiTep });
+    const ctxDt = { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc };
+    // doi / doiKy: đổi lựa chọn rồi hỏi lại máy chủ (chỉ khi còn ở thẻ này). veLai: vẽ lại bằng số của lượt MỚI NHẤT — một câu trả lời đến muộn
+    // (ví dụ kết quả "Xác nhận đổi" về sau khi đã đổi bộ lọc hay sang thẻ khác) không vẽ đè số cũ lên màn hình mới.
+    const tt = { dt: state.dt, ky, doi: (fn) => { fn(state.dt); luuDtKy(); if (dtODay()) render(); },
+      doiKy: (fn) => { fn(state.dt); state.dt.dangHoi = true; luuDtKy(); if (dtODay()) render(); else state.dt.dangHoi = false; }, tai: taiTep,
+      veLai: () => { if (dtVe) dtVe(); },
+      // Đặt mục tiêu: máy chủ quyết định (chỉ owner, hai lớp, ghi nhật ký). Lỗi mạng → { error: 'loi' } để khối hiện câu "thử lại".
+      datMucTieu: (thap, cao) => rpc('admin_dat_muc_tieu_doanh_thu', { p_thap: thap, p_cao: cao }).catch(() => ({ error: 'loi' })) };
+    dtVe = () => { if (!dtODay()) return; luuDtKy(); PT.doanhThu(main, o, ctxDt, tt); };
+    PT.doanhThu(main, o, ctxDt, tt);
   }
 
   // ---------------------------------------------------------------- HỆ THỐNG

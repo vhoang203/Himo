@@ -680,6 +680,78 @@
     veBieuDo(main);
   }
 
+  // ================================================================ G. GỢI Ý NEARBY (197)
+  /** admin_pt_goi_y_nearby — số liệu NỘI BỘ, chỉ đọc (chủ dự án 18/11/2026).
+   *  Tệp này là tệp tĩnh: ai biết địa chỉ trang cũng tải được, không cần đăng nhập → KHÔNG chứa lời nào về cách chọn hay cách tính. Hai khối
+   *  "Tổng hợp" / "Cài đặt đang chạy" và các cột số của "Bảng hồ sơ" được vẽ nguyên theo TÊN TRƯỜNG máy chủ gửi cho quản trị viên đã đăng
+   *  nhập (rà độc lập 18/11); bảng giải thích từng trường nằm ở tài liệu nội bộ của gói, không nằm ở đây. */
+  function goiY(main, o2, ctx) {
+    C = ctx;
+    const cd = o2.cai_dat || {}; const g = o2.goi_y || {};
+    const ngay = o2.ngay || 14;
+    const sod = (v) => (v == null ? '—' : so(v));
+    const top = o2.top || []; const tong = Number(o2.top_tong) || 0; const tu = Number(o2.top_tu) || 0;
+    const theoNgay = o2.theo_ngay || [];
+    const lucNao = (ts) => esc(new Date(ts).toLocaleString(C.locale ? C.locale() : undefined));
+    // giá trị máy chủ gửi, trang không biết trước nghĩa: số → tối đa 4 chữ số lẻ; đúng / sai → dấu; mốc giờ → giờ của máy đang xem; còn lại → chữ đã thoát
+    const gt = (v) => (v == null ? '—' : typeof v === 'number' ? so(Math.round(v * 10000) / 10000) : typeof v === 'boolean' ? (v ? '✓' : '✗')
+      : /^\d{4}-\d{2}-\d{2}T/.test(String(v)) ? lucNao(v) : esc(String(v)));
+    // 198: máy chủ gửi kèm nhãn của từng trường cho quản trị viên đã đăng nhập (`nhan`: { tên trường: { vi, en } }) → hiện nhãn đó;
+    // trường chưa có nhãn (máy chủ chưa có 198) → tên trường. Tệp này vẫn không chứa lời giải thích nào.
+    const nhan = o2.nhan && typeof o2.nhan === 'object' ? o2.nhan : {};
+    const ngonNgu = C.lang && C.lang() === 'en' ? 'en' : 'vi';
+    const tenTruong = (k) => {
+      const n = nhan[k];
+      return esc(n && typeof n === 'object' && typeof n[ngonNgu] === 'string' && n[ngonNgu] ? n[ngonNgu] : String(k).replace(/_/g, ' '));
+    };
+    const bangTruong = (obj) => {
+      const ks = Object.keys(obj || {}).sort();
+      return ks.length
+        ? `<div class="scrollx"><table class="tbl"><tbody>${ks.map((k) => `<tr><td>${tenTruong(k)}</td><td class="num">${gt(obj[k])}</td></tr>`).join('')}</tbody></table></div>`
+        : `<div class="hint">${t('Chưa có dữ liệu.')}</div>`;
+    };
+    // cột dựng riêng (thứ tự, hồ sơ, nước); MỌI trường khác của một dòng thành một cột theo tên trường — trường `diem` đứng đầu
+    const RIENG = ['hang', 'id', 'ten', 'username', 'nuoc', 'xac_minh', 'du_dieu_kien'];
+    const cotKhac = top.length ? Object.keys(top[0]).filter((k) => !RIENG.includes(k)).sort((a, b) => (a === 'diem' ? -1 : b === 'diem' ? 1 : a < b ? -1 : a > b ? 1 : 0)) : [];
+    const capNhat = cd.tinh_luc ? `${t('cập nhật lúc')} ${lucNao(cd.tinh_luc)}` : t('chưa cập nhật lần nào');
+    const trangThai = cd.bat
+      ? `<div class="alertbar ok"><div><b>${t('Đang BẬT')}</b> — ${so(cd.phan_tram || 0)}% · ${t('tài khoản thử')}: ${sod(o2.nguoi_thu)}. ${capNhat}.</div></div>`
+      : `<div class="alertbar warn"><div><b>${t('Đang TẮT')}</b> — ${t('bật / tắt ở máy chủ, không đổi từ trang này.')} ${capNhat}.</div></div>`;
+    const dongTop = top.map((x) => `<tr>
+        <td class="num"><b>${gt(x.hang)}</b></td>
+        <td><a href="#nguoidung/${esc(x.id)}">${esc(x.ten || '?')}</a>${x.username ? ` <span class="hint">@${esc(x.username)}</span>` : ''}${x.xac_minh ? ` <span class="tag accent">${t('đã xác minh')}</span>` : ''}${x.du_dieu_kien === false ? ` <span class="tag">${t('không đủ điều kiện')}</span>` : ''}</td>
+        <td>${esc(x.nuoc || '—')}</td>
+        ${cotKhac.map((k, i) => `<td class="num">${i === 0 ? `<b>${gt(x[k])}</b>` : gt(x[k])}</td>`).join('')}</tr>`).join('');
+    // lật trang: có ở TRÊN và dưới bảng, và luôn có khi bảng có dòng — kể cả lúc trang đang đứng vừa hết dòng (máy chủ vừa tính lại)
+    const nutTrang = `<div class="row" style="margin:8px 0;gap:8px">
+          <button class="btn sm gyTruoc" ${tu <= 0 ? 'disabled' : ''}>← ${t('Trang trước')}</button>
+          <button class="btn sm gySau" ${tu + top.length >= tong ? 'disabled' : ''}>${t('Trang sau')} →</button>
+          <span class="hint">${so(top.length ? tu + 1 : 0)}–${so(tu + top.length)} / ${so(tong)}</span></div>`;
+    main.innerHTML = `<div class="stack" style="padding-top:14px">
+      ${dauTrang(t('Gợi ý Nearby'), `${t('Số liệu nội bộ, chỉ đọc.')} ${t('Kỳ')} ${so(ngay)} ${t('ngày')}.`, [7, 14, 30], ngay)}
+      ${trangThai}
+      ${the(t('Ô trong kỳ'), t('gồm cả tài khoản thử / nội bộ'), `<div class="tiles pt-tiles">
+        ${o(t('Ô đã gửi cho app'), sod(g.luot), '', `${sod(g.luot_khoa)} ${t('ô khoá')}`)}
+        ${o(t('Người nhận ô'), sod(g.nguoi_xem), '', `${sod(g.nguoi_xem_khoa)} ${t('nhận ô khoá')}`)}
+        ${o(t('Hồ sơ xuất hiện trong ô'), sod(g.ho_so), '', '')}
+        ${o(t('Ô được bấm'), sod(g.o_duoc_bam), '', `${sod(g.o_khoa_duoc_bam)} ${t('ô khoá')} · ${hienPct(pct1(Number(g.o_duoc_bam) || 0, Number(g.luot) || 0))}`)}
+        ${o(t('Người bấm ô khoá'), sod(g.nguoi_bam_khoa), '', hienPct(pct1(Number(g.nguoi_bam_khoa) || 0, Number(g.nguoi_xem_khoa) || 0)), (Number(g.nguoi_xem_khoa) || 0) < MAU_KHONG_DU)}
+        ${o(t('Bấm ô khoá, sau đó có lượt mua / gia hạn Plus'), sod(g.nguoi_bam_roi_mua), '', t('gồm cả dùng thử và môi trường thử — không phải bằng chứng nhân quả'))}
+      </div>`)}
+      ${the(t('Tổng hợp'), capNhat, bangTruong(o2.diem))}
+      ${the(t('Bảng hồ sơ'), '', o2.top_bi_gioi_han ? `<div class="hint">${t('Bảng từng hồ sơ chỉ hiện cho quản trị viên được xem dữ liệu riêng và đã xác thực hai lớp.')} ${t('Số hồ sơ trong bảng')}: ${so(tong)}.</div>`
+        : tong ? `${nutTrang}<div class="scrollx">
+        <table class="tbl"><thead><tr><th class="num">#</th><th>${t('Hồ sơ')}</th><th>${t('Nước')}</th>${cotKhac.map((k) => `<th class="num">${tenTruong(k)}</th>`).join('')}</tr></thead>
+        <tbody>${dongTop}</tbody></table></div>${top.length > 20 ? nutTrang : ''}` : `<div class="hint">${t('Chưa có dữ liệu.')}</div>`, 'gyBang')}
+      ${the(t('Theo ngày'), t('ngày theo giờ UTC'), theoNgay.length ? `<div class="scrollx"><table class="tbl"><thead><tr><th>${t('Ngày')}</th><th class="num">${t('Ô đã gửi cho app')}</th><th class="num">${t('Ô khoá')}</th>
+          <th class="num">${t('Người nhận ô')}</th><th class="num">${t('Ô được bấm')}</th><th class="num">${t('Ô khoá được bấm')}</th></tr></thead>
+        <tbody>${theoNgay.map((x) => `<tr><td>${esc(ngayNgan(x.ngay))}</td><td class="num">${sod(x.luot)}</td><td class="num">${sod(x.luot_khoa)}</td><td class="num">${sod(x.nguoi)}</td>
+          <td class="num">${sod(x.bam)}</td><td class="num">${sod(x.bam_khoa)}</td></tr>`).join('')}</tbody></table></div>` : `<div class="hint">${t('Chưa có ô nào trong kỳ.')}</div>`)}
+      ${the(t('Cài đặt đang chạy'), t('đổi ở máy chủ, không đổi từ trang này'), bangTruong(cd))}
+      <div class="hint">${t('Tên cột và tên cài đặt hiện đúng theo tên trường máy chủ gửi; bảng giải thích nằm trong tài liệu nội bộ.')}</div>
+    </div>`;
+  }
+
   // ---------------------------------------------------------------- CHÂN DUNG NGƯỜI DÙNG (167)
   // Máy chủ (admin_pt_chan_dung) trả số TỔNG HỢP theo từng chiều: [{k, n}] hoặc {k, it: true} khi nhóm dưới 5 người (không kèm số).
   // Tệp này chỉ vẽ + nối bộ lọc; không có con số nào được gõ sẵn ở đây — không có dữ liệu thì hiện "chưa có", không bịa.
@@ -1036,6 +1108,8 @@
     C = ctx;
     const dt = tt.dt;
     const cam = !!(o && o.error);
+    const coKy = Object.prototype.hasOwnProperty.call(tt, 'ky');        // 202: admin.js mới đưa kèm kết quả theo kỳ (null = máy chủ chưa có 202)
+    dtkNhoTieuDiem(main);                                               // trang tự làm mới mỗi phút: nút đang giữ tiêu điểm trong khối theo kỳ phải giữ được nó
     const lc = (o && o.lua_chon) || {};
     const laThu = dt.moi_truong === 'SANDBOX';
     const sp = (lc.san_pham || []).filter((x) => (laThu || x.cua_hang !== 'test_store') && (!dt.cua_hang || x.cua_hang === dt.cua_hang));
@@ -1064,7 +1138,7 @@
       const canhBao = `${laThu ? `<div class="alertbar warn"><div><b>${t('Đang xem giao dịch THỬ (sandbox)')}</b><br>${t('Không phải tiền thật. Đổi "Môi trường" về "Giao dịch thật" để xem doanh thu.')}</div></div>` : ''}
         ${n(soGhi.thieu) > 0 ? `<div class="alertbar"><div><b>${so(soGhi.thieu)} ${t('sự kiện có tiền chưa vào sổ')}</b><br>${t('Con số bên dưới đang thiếu các giao dịch này. Chạy trong SQL Editor:')} <code>select public.billing_doanh_thu_bu();</code></div></div>` : ''}
         ${n(soGhi.dong) === 0 ? `<div class="alertbar ok"><div><b>${t('Chưa có giao dịch nào trong sổ')}</b><br>${t('Sổ ghi từ lúc áp bản vá 168 (và ghi bù các sự kiện trong 90 ngày trước đó). Khi có người mua HIMO Plus, giao dịch hiện ở đây trong vài giây.')}</div></div>` : ''}`;
-      const kpi = `<div class="tiles pt-tiles dt-tiles">
+      const kpi = `${coKy && tt.ky && !tt.ky.error ? `<div class="sec lon"><h2>${dt.ngay} ${t('ngày gần nhất')}</h2><span class="hint">${t('các ô số, biểu đồ theo ngày và bảng chia theo gói / nước bên dưới')}</span></div>` : ''}<div class="tiles pt-tiles dt-tiles">
         ${cdO(t('Doanh thu gộp'), esc(dtTien(tg.gop)), bienDong(n(tg.gop), n(tr.gop), 'len'), `${so(n(tg.mua_moi) + n(tg.gia_han) + n(tg.mua_le))} ${t('giao dịch trả tiền')}`)}
         ${cdO(t('Hoàn tiền'), esc(dtTien(tg.hoan)), bienDong(n(tg.hoan_tien), n(tr.hoan_tien), 'xuong'), `${so(tg.hoan_tien)} ${t('lần')}${n(tg.dao_hoan) ? ` · ${t('đảo lại')} ${esc(dtTien(tg.dao_hoan))}` : ''}`)}
         ${cdO(t('Doanh thu ròng'), esc(dtTien(tg.rong)), bienDong(n(tg.rong), n(tr.rong), 'len'), t('gộp trừ hoàn tiền'))}
@@ -1089,7 +1163,7 @@
         <div class="hint" style="margin-top:8px">${t('Hết hạn trong 30 ngày qua')}: <b>${so(tb.het_han_30d)}</b> · ${t('Đang dùng Plus tặng (không tính doanh thu)')}: <b>${so(o.plus_tang)}</b></div>
         ${(o.thue_bao_goi || []).length ? `<div class="hint" style="margin-top:6px">${(o.thue_bao_goi || []).map((x) => `${esc(dtGoi(x.k, x.thoi_han))}: <b>${so(x.n)}</b>`).join(' · ')}</div>` : ''}`);
       const ganDay = o.gan_day || [];
-      than = `${canhBao}${kpi}${bieuDo}
+      than = `${canhBao}${coKy ? dtkAnToan(tt.ky, dt) : ''}${kpi}${bieuDo}
         <div class="cd-grid">
           ${the(t('Theo gói'), t('giao dịch trả tiền trong kỳ — gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_goi || []).map((x) => ({ ten: dtGoi(x.k, x.thoi_han), usd: x.usd, n: x.n }))))}
           ${the(t('Theo nước'), t('vị trí gần nhất của người mua (RevenueCat ghi nhận) — gộp, chưa trừ hoàn tiền'), dtThanh((o.theo_nuoc || []).slice(0, 12).map((x) => ({ ten: dtNuoc(x.k), usd: x.usd, n: x.n })), 'var(--pt-s1)'))}
@@ -1119,6 +1193,7 @@
     const lm = main.querySelector('#dtLamMoi'); if (lm) lm.addEventListener('click', () => tt.doi(() => undefined));
     const csv = main.querySelector('#dtCsv');
     if (csv) csv.addEventListener('click', () => tt.tai(`himo-doanh-thu-${String(o.den_ngay || '').slice(0, 10)}.csv`, dtCsv(o)));
+    if (coKy && !cam) { try { dtkNoi(main, tt.ky, tt); } catch (e) { /* khối theo kỳ hỏng không được kéo theo phần cũ */ } }
   }
   const fmtNgayDt = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(s || ''); };
   /** Khối nhỏ cho trang Tổng quan. Trả '' khi máy chủ chưa có 168, người xem không có quyền, hoặc chưa có gì để hiện. */
@@ -1132,5 +1207,315 @@
       <div class="tiles">${o1(esc(dtTien(homNay)), t('hôm nay'))}${o1(esc(dtTien(tg.gop)), `${o.ngay} ${t('ngày qua (gộp)')}`)}${o1(so(tb.dang_tra), t('người đang trả tiền'))}${o1(esc(dtTien((o.mrr || {}).usd)), t('MRR ước tính'))}</div>`;
   }
 
-  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, chuGiai: ganChuGiai };
+  // ---------------------------------------------------------------- DOANH THU THEO KỲ (202)
+  // Máy chủ (admin_doanh_thu_ky) trả các CỘT của kỳ đang chọn (ngày / tuần / tháng / năm), cột của kỳ so sánh, khối "tháng này" và hai mục
+  // tiêu. Tệp này chỉ vẽ + nối nút; admin.js gọi máy chủ. Không có con số nào gõ sẵn (hai mục tiêu cũng do máy chủ trả).
+  const n0 = (v) => Number(v) || 0;
+  const dtkNgay = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || '')); return m ? { y: m[1], m: m[2], d: m[3] } : null; };
+  /** Nhãn của một cột: `ngan` cho trục, `day` cho chú giải / bảng / CSV. */
+  function dtkNhan(c, nhom) {
+    const a = dtkNgay(c.tu), b = dtkNgay(c.den);
+    if (!a || !b) return { ngan: String(c.tu || ''), day: String(c.tu || '') };
+    const day = c.tu === c.den ? `${a.d}/${a.m}/${a.y}` : `${a.d}/${a.m}/${a.y} – ${b.d}/${b.m}/${b.y}`;
+    if (nhom === 'nam') return { ngan: a.y, day };
+    if (nhom === 'thang') return { ngan: `${a.m}/${a.y}`, day };
+    return { ngan: `${a.d}/${a.m}`, day };
+  }
+  const dtkSoNgayThang = (y, m) => new Date(Date.UTC(Number(y), Number(m), 0)).getUTCDate();
+  /** Mục tiêu (USD thực nhận mỗi THÁNG) quy về một cột: tháng = nguyên; ngày = chia số ngày của tháng đó; năm = × 12; tuần = không vẽ. */
+  function dtkMucTieuCot(c, nhom, usd) {
+    const a = dtkNgay(c.tu);
+    if (!a || !(Number(usd) > 0)) return null;
+    if (nhom === 'thang') return Number(usd);
+    if (nhom === 'ngay') return Number(usd) / dtkSoNgayThang(a.y, a.m);
+    if (nhom === 'nam') return Number(usd) * 12;
+    return null;
+  }
+  const dtkGt = (c, kieu) => (!c ? 0 : kieu === 'gd' ? n0(c.tra_tien) : kieu === 'gop' ? n0(c.gop) : n0(c.thuc_nhan));
+  const dtkHien = (v, kieu) => (kieu === 'gd' ? so(v) : dtTien(v));
+  const dtkDoi = (cur, prev) => (prev ? Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10 : null);
+  const DTK_MT_TOI_DA = 10;   // đường mục tiêu chỉ vẽ khi không cao quá 10 lần cột cao nhất
+  const dtkTenNhom = (k) => ({ ngay: t('Ngày'), tuan: t('Tuần'), thang: t('Tháng'), nam: t('Năm') })[k] || String(k || '');
+  const dtkTenSs = (k) => ({ khong: t('Không so sánh'), ky_truoc: t('Kỳ trước'), cung_ky_nam_truoc: t('Cùng kỳ năm trước') })[k] || String(k || '');
+  /** Nhãn % thay đổi của TỔNG so với kỳ so sánh. Kỳ so sánh ÂM (chỉ có hoàn tiền): chia cho trị tuyệt đối như bảng bên dưới — không để dấu bị đảo. */
+  function dtkHuyHieu(cur, prev) {
+    if (!(prev < 0)) return bienDong(cur, prev, 'len');
+    const p = dtkDoi(cur, prev);
+    return `<span class="pt-d ${p > 0 ? 'pt-dtot' : p < 0 ? 'pt-dxau' : 'pt-d0'}">${p > 0 ? '▲ ' : p < 0 ? '▼ ' : ''}${so(Math.abs(p))}%</span>`;
+  }
+  /** Số mục tiêu hợp lệ: 0 < x ≤ 10 000 000, tối đa hai chữ số thập phân. So có dung sai: 5000.1 × 100 không tròn trong số thực, phép so bằng tuyệt đối từ chối nhầm. */
+  const dtkSoMucTieu = (x) => typeof x === 'number' && Number.isFinite(x) && x > 0 && x <= 10000000 && Math.abs(x * 100 - Math.round(x * 100)) < 1e-6;
+
+  /**
+   * Cột theo kỳ: cột chính (màu thương hiệu), cột kỳ so sánh nhạt hơn đứng bên trái, đường mục tiêu nét đứt có nhãn.
+   * Giá trị âm (kỳ hoàn tiền nhiều hơn thu) vẽ xuống dưới đường 0. mucTieu: [{ usd, nhan }] — chỉ đưa vào khi đang xem THỰC NHẬN;
+   * nhãn cạnh mỗi đường là giá trị của đường ở cột cuối, theo đúng thang của trục.
+   */
+  function cotKy(cot, { nhom, kieu, coSs, mucTieu = [], ten = '', W = 640, cao = 230 } = {}) {
+    const n = cot.length;
+    const gt = cot.map((c) => dtkGt(c, kieu));
+    const ss = cot.map((c) => (coSs && c.ss && c.ss.co ? dtkGt(c.ss, kieu) : null));
+    const maxDl = Math.max(0, ...gt, ...ss.map((v) => v || 0));
+    const minDl = Math.min(0, ...gt, ...ss.map((v) => v || 0));
+    // Mục tiêu cao hơn 10 lần cột cao nhất thì KHÔNG vẽ (cột sẽ bị ép dẹt dưới 1/10 khung, không đọc được) — dòng chữ dưới biểu đồ nói rõ con số.
+    const mt = mucTieu.map((m) => ({ ...m, v: cot.map((c) => dtkMucTieuCot(c, nhom, m.usd)) })).filter((m) => m.v.length && m.v.every((v) => v != null));
+    const mtVe = mt.filter((m) => maxDl > 0 && Math.max(...m.v) <= maxDl * DTK_MT_TOI_DA);
+    const H = cao, L = 48, R = mtVe.length ? 70 : 8, T = 12, B = 24;
+    const { top, ticks } = mocTruc(Math.max(maxDl, ...mtVe.flatMap((m) => m.v), 0));
+    const day = minDl < 0 ? -mocTruc(-minDl).top : 0;
+    const y = (v) => T + (H - T - B) * ((top - v) / (top - day));
+    const bw = (W - L - R) / Math.max(1, n);
+    const moc = [...new Set([...ticks, ...(day < 0 ? [day] : [])])];
+    const luoi = moc.map((v) => `<line class="pt-grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="pt-ax" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${so(v)}</text>`).join('')
+      + (day < 0 ? `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line2)" stroke-width="1"/>` : '');
+    const bn = Math.max(1, Math.ceil(n / Math.max(3, Math.floor((W - L - R) / (nhom === 'thang' ? 62 : 48)))));
+    const mot = (x, v, w, mau, mo) => {
+      if (!v) return `<rect x="${x}" y="${y(0) - 1}" width="${w}" height="1" fill="var(--line2)"/>`;
+      if (v > 0) return `<path d="${bar(x, y(v), w, y(0) - y(v))}" fill="${mau}"${mo ? ` fill-opacity="${mo}" stroke="${mau}" stroke-width="1"` : ''}/>`;
+      return `<rect x="${x}" y="${y(0)}" width="${w}" height="${Math.max(1, y(v) - y(0))}" fill="var(--pt-sneg)"${mo ? ` fill-opacity="${mo}" stroke="var(--pt-sneg)" stroke-width="1"` : ''} rx="2"/>`;
+    };
+    const cots = cot.map((c, i) => {
+      const nh = dtkNhan(c, nhom);
+      const x0 = L + i * bw, trong = Math.max(1, bw - (bw > 14 ? 4 : 1));
+      const coCap = ss[i] != null;
+      const w1 = coSs ? Math.max(1, trong / 2 - (trong > 10 ? 1 : 0)) : trong;
+      const dong = [nh.day, `${ten}: ${dtkHien(gt[i], kieu)}`];
+      if (coSs) {
+        if (coCap) { const p = dtkDoi(gt[i], ss[i]); dong.push(`${t('Kỳ so sánh')} (${dtkNhan(c.ss, nhom).day}): ${dtkHien(ss[i], kieu)}${p == null ? '' : ` (${p > 0 ? '+' : ''}${so(p)}%)`}`); }
+        else dong.push(t('Kỳ so sánh: không có ngày tương ứng'));
+      }
+      dong.push(`${t('Mua mới')}: ${so(c.mua_moi)} · ${t('Gia hạn')}: ${so(c.gia_han)} · ${t('Hoàn tiền')}: ${so(c.hoan_tien)}`);
+      for (const m of mt) dong.push(`${m.nhan}: ${dtTien(m.v[i])}`);
+      const tip = dong.join('\n');
+      return `<g class="pt-bar" tabindex="0" data-tip="${esc(tip)}"><rect x="${x0}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent"/>`
+        + (coSs ? (coCap ? mot(x0 + (bw - trong) / 2, ss[i], w1, 'var(--primary)', '.35') : '') : '')
+        + mot(x0 + (bw - trong) / 2 + (coSs ? trong - w1 : 0), gt[i], w1, 'var(--primary)', '')
+        + `<title>${esc(tip)}</title></g>`
+        + ((i % bn === 0 || (i === n - 1 && (n - 1) % bn >= Math.ceil(bn * 0.75))) ? `<text class="pt-ax" x="${x0 + bw / 2}" y="${H - 7}" text-anchor="middle">${esc(nh.ngan)}</text>` : '');
+    }).join('');
+    const duongMt = mtVe.map((m, k) => {
+      const d = m.v.map((v, i) => `${i ? 'L' : 'M'}${(L + i * bw).toFixed(1)},${y(v).toFixed(1)}H${(L + (i + 1) * bw).toFixed(1)}`).join('');
+      const mau = k ? 'var(--pt-s3)' : 'var(--pt-s2)';
+      return `<path d="${d}" fill="none" stroke="${mau}" stroke-width="1.5" stroke-dasharray="6 4"/><text class="pt-ax" x="${W - R + 5}" y="${y(m.v[n - 1]) + 4}" style="font-weight:700">${so(Math.round(m.v[n - 1]))}</text>`;
+    }).join('');
+    return `<svg class="pt-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(ten)}">${luoi}${cots}${duongMt}</svg>`;
+  }
+
+  /** Một ô CSV an toàn: luôn bọc nháy kép; ô CHỮ bắt đầu bằng = + - @ (hoặc tab / xuống dòng) được thêm dấu ' phía trước để bảng tính không coi là công thức. Số thật (kể cả số âm) giữ nguyên là số. */
+  function csvO(v) {
+    if (v == null) return '""';
+    if (typeof v === 'number' && Number.isFinite(v)) return `"${v}"`;
+    let s = String(v);
+    if (!/^-?\d+(\.\d+)?$/.test(s) && /^[=+\-@\t\r\n]/.test(s)) s = `'${s}`;
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  const dtkSach = (v) => String(v == null ? '' : v).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  const dtkTenTep = (ky) => `himo-doanh-thu-${dtkSach(ky.nhom)}-${dtkSach(ky.tu_ngay)}_${dtkSach(ky.den_ngay)}-${dtkSach(ky.tz || 'UTC')}.csv`;
+  /** Nhãn cột trong CSV: dạng ISO (2026 · 2026-11 · 2026-11-18) — bảng tính không đoán nhầm ngày / tháng và không tự gán năm hiện tại. */
+  const dtkNhanCsv = (c, nhom) => { const a = dtkNgay(c.tu); return !a ? String(c.tu || '') : nhom === 'nam' ? a.y : nhom === 'thang' ? `${a.y}-${a.m}` : `${a.y}-${a.m}-${a.d}`; };
+  /** CSV của ĐÚNG những gì bảng đang hiện: các dòng mô tả, một dòng mỗi cột, dòng tổng. Không có dữ liệu về người dùng nào.
+   *  Bộ lọc ghi theo `ky.loc` — bộ lọc máy chủ ĐÃ DÙNG cho chính các con số này (không theo lựa chọn vừa đổi trên màn hình mà số chưa về). */
+  function dtkCsv(ky) {
+    const loc = ky.loc || {};
+    const coSs = ky.so_sanh !== 'khong';
+    const dau = [t('Kỳ'), t('Từ ngày'), t('Đến ngày'), t('Doanh thu gộp (USD)'), t('Hoàn tiền (USD)'), t('Doanh thu ròng (USD)'), t('Thực nhận ước tính (USD)'), t('Mua mới'), t('Gia hạn'), t('Mua lẻ'), t('Hoàn tiền'), t('Giao dịch trả tiền'),
+      ...(coSs ? [t('Kỳ so sánh — từ ngày'), t('Kỳ so sánh — đến ngày'), t('Kỳ so sánh — thực nhận (USD)'), t('Kỳ so sánh — gộp (USD)')] : [])];
+    const tg = ky.tong || {}, ts = ky.tong_ss || {};
+    const dong = [[t('Doanh thu HIMO Plus theo kỳ'), ky.luc || ''], [t('Khoảng'), `${ky.tu_ngay} → ${ky.den_ngay}`, ky.tz], [t('Xem theo'), dtkTenNhom(ky.nhom)], [t('So sánh'), dtkTenSs(ky.so_sanh)], [t('Môi trường'), ky.moi_truong],
+      [t('Lọc'), loc.cua_hang || '', loc.san_pham || '', loc.quoc_gia || ''], [], dau];
+    for (const c of ky.cot || []) {
+      const s = c.ss && c.ss.co ? c.ss : null;
+      dong.push([dtkNhanCsv(c, ky.nhom), c.tu, c.den, n0(c.gop), n0(c.hoan), n0(c.rong), n0(c.thuc_nhan), n0(c.mua_moi), n0(c.gia_han), n0(c.mua_le), n0(c.hoan_tien), n0(c.tra_tien),
+        ...(coSs ? [s ? s.tu : '', s ? s.den : '', s ? n0(s.thuc_nhan) : '', s ? n0(s.gop) : ''] : [])]);
+    }
+    dong.push([t('Tổng'), ky.tu_ngay, ky.den_ngay, n0(tg.gop), n0(tg.hoan), n0(tg.rong), n0(tg.thuc_nhan), n0(tg.mua_moi), n0(tg.gia_han), n0(tg.mua_le), n0(tg.hoan_tien), n0(tg.tra_tien),
+      ...(coSs ? [ts.tu || '', ts.den || '', n0(ts.thuc_nhan), n0(ts.gop)] : [])]);
+    return '﻿' + dong.map((d) => d.map(csvO).join(',')).join('\r\n');
+  }
+
+  /** Thẻ "Tháng này": thực nhận từ đầu tháng so với hai mục tiêu, ước tính cuối tháng, còn cần bao nhiêu mỗi ngày. */
+  function dtkThangNay(ky, st) {
+    const tn = ky.thang_nay || {}, mt = ky.muc_tieu || {}, ds = tn.muc_tieu || [];
+    const conNgay = n0(tn.ngay_trong_thang) - n0(tn.ngay_da_qua);
+    const hang = ds.map((m, k) => {
+      const pt = n0(m.pt), dat = n0(m.con_thieu) <= 0;
+      const phu = dat ? t('Đã đạt mục tiêu này trong tháng.')
+        : conNgay > 0 ? `${t('Còn thiếu')} ${dtTien(m.con_thieu)} — ${t('cần')} ${dtTien(m.can_moi_ngay)} ${t('mỗi ngày trong')} ${so(conNgay)} ${t('ngày còn lại')}`
+        : `${t('Còn thiếu')} ${dtTien(m.con_thieu)} — ${t('hôm nay là ngày cuối tháng')}`;
+      const tip = `${k ? t('Mục tiêu cao') : t('Mục tiêu thấp')}: ${dtTien(m.usd)}\n${t('Thực nhận từ đầu tháng')}: ${dtTien(tn.thuc_nhan)} (${so(pt)}%)\n${t('Ước tính cuối tháng')}: ${so(n0(m.uoc_tinh_pt))}% ${t('của mục tiêu')}`;
+      return `<div class="cd-row tien dtk-mt" tabindex="0" data-tip="${esc(tip)}"><span class="cd-l"><b>${esc(dtTien(tn.thuc_nhan))}</b> / ${esc(dtTien(m.usd))}<span class="dtk-mt-t">${k ? t('Mục tiêu cao') : t('Mục tiêu thấp')}</span></span>
+          <span class="cd-p">${so(pt)}%</span><span class="cd-b"><i style="width:${Math.max(pt > 0 ? 1.5 : 0, Math.min(100, pt))}%;background:${k ? 'var(--pt-s3)' : 'var(--pt-s2)'}"></i></span></div>
+        <div class="hint" style="margin:-2px 0 8px">${esc(phu)}</div>`;
+    }).join('');
+    const form = !st.mtMo || !mt.sua_duoc ? '' : `<div class="card" id="dtkMtForm" style="margin-top:10px">
+        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px">${t('Mục tiêu thấp (USD mỗi tháng)')}<input id="dtkMtThap" type="number" inputmode="decimal" min="0.01" max="10000000" step="0.01" value="${esc(String(st.mtThap != null ? st.mtThap : n0(mt.thap)))}" ${st.mtXacNhan ? 'disabled' : ''}></label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px">${t('Mục tiêu cao (USD mỗi tháng)')}<input id="dtkMtCao" type="number" inputmode="decimal" min="0.01" max="10000000" step="0.01" value="${esc(String(st.mtCao != null ? st.mtCao : n0(mt.cao)))}" ${st.mtXacNhan ? 'disabled' : ''}></label>
+          ${st.mtXacNhan ? `<button type="button" class="btn sm primary" id="dtkMtXacNhan">${t('Xác nhận đổi')}</button>` : `<button type="button" class="btn sm" id="dtkMtLuu">${t('Lưu mục tiêu')}</button>`}
+          <button type="button" class="btn sm" id="dtkMtHuy">${t('Huỷ')}</button>
+        </div>
+        ${st.mtXacNhan ? `<div class="alertbar warn" style="margin-top:10px"><div><b>${t('Đổi mục tiêu?')}</b><br>${esc(dtTien(mt.thap))} / ${esc(dtTien(mt.cao))} → ${esc(dtTien(st.mtThap))} / ${esc(dtTien(st.mtCao))}. ${t('Thay đổi được ghi vào nhật ký quản trị.')}</div></div>` : ''}
+        ${st.mtLoi ? `<div class="alertbar" style="margin-top:10px" role="alert"><div>${esc(st.mtLoi)}</div></div>` : ''}
+      </div>`;
+    return the(t('Tháng này'), `${esc(fmtNgayDt(tn.tu))} → ${esc(fmtNgayDt(tn.den))} · ${t('ngày thứ')} ${so(tn.ngay_da_qua)}/${so(tn.ngay_trong_thang)} · ${esc(ky.tz || '')}`,
+      `<div class="cd-rows">${hang}</div>
+       <div class="hint">${t('Ước tính cuối tháng')}: <b>${esc(dtTien(tn.uoc_tinh_cuoi_thang))}</b> — ${t('ƯỚC TÍNH theo đường thẳng (thực nhận từ đầu tháng ÷ số ngày đã qua × số ngày của tháng); tháng có đợt gia hạn dồn vào một ngày thì lệch.')}</div>
+       ${n0(tn.thieu_ti_le) ? `<div class="hint" id="dtkThieu">${so(tn.thieu_ti_le)} ${t('giao dịch chưa rõ thuế / phí')} — ${t('chưa cộng vào thực nhận.')}</div>` : ''}
+       <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><span class="hint">${t('Mục tiêu là thực nhận ước tính mỗi tháng, theo bộ lọc đang chọn.')}</span>
+         ${mt.sua_duoc && !st.mtMo ? `<button type="button" class="btn sm" id="dtkMtMo">${t('Đặt mục tiêu')}</button>` : ''}</div>${form}`, 'dtkThang');
+  }
+
+  /** Bảng dưới biểu đồ: một dòng mỗi cột + dòng tổng — cũng là bản đọc được bằng trình đọc màn hình của biểu đồ. */
+  function dtkBang(ky) {
+    const coSs = ky.so_sanh !== 'khong', tg = ky.tong || {}, ts = ky.tong_ss || {};
+    const o1 = (v) => `<td class="num">${esc(dtTien(v))}</td>`, o2 = (v) => `<td class="num">${so(v)}</td>`;
+    const doi = (a, b) => { const p = dtkDoi(n0(a), n0(b)); return p == null ? '—' : `${p > 0 ? '+' : ''}${so(p)}%`; };
+    const dong = (ky.cot || []).map((c) => { const s = c.ss && c.ss.co ? c.ss : null; return `<tr><th scope="row">${esc(dtkNhan(c, ky.nhom).day)}</th>${o1(c.gop)}${o1(c.hoan)}${o1(c.rong)}<td class="num"><b>${esc(dtTien(c.thuc_nhan))}</b></td>${o2(c.mua_moi)}${o2(c.gia_han)}${o2(c.mua_le)}${o2(c.hoan_tien)}${o2(c.tra_tien)}
+      ${coSs ? `<td class="num">${s ? esc(dtTien(s.thuc_nhan)) : '—'}</td><td class="num">${s ? esc(doi(c.thuc_nhan, s.thuc_nhan)) : '—'}</td>` : ''}</tr>`; }).join('');
+    return `<div class="scrollx"><table class="tbl" id="dtkBang"><caption class="hint" style="text-align:left;padding-bottom:6px">${t('Một dòng cho mỗi cột của biểu đồ.')}</caption><thead><tr>
+        <th scope="col">${t('Kỳ')}</th><th scope="col" class="num">${t('Gộp')}</th><th scope="col" class="num">${t('Hoàn tiền')}</th><th scope="col" class="num">${t('Ròng')}</th><th scope="col" class="num">${t('Thực nhận')}</th>
+        <th scope="col" class="num">${t('Mua mới')}</th><th scope="col" class="num">${t('Gia hạn')}</th><th scope="col" class="num">${t('Mua lẻ')}</th><th scope="col" class="num">${t('Lần hoàn')}</th><th scope="col" class="num">${t('Giao dịch trả tiền')}</th>
+        ${coSs ? `<th scope="col" class="num">${t('Thực nhận kỳ so sánh')}</th><th scope="col" class="num">${t('Thay đổi')}</th>` : ''}</tr></thead>
+      <tbody>${dong}</tbody>
+      <tfoot><tr><th scope="row">${t('Tổng')}</th>${o1(tg.gop)}${o1(tg.hoan)}${o1(tg.rong)}<td class="num"><b>${esc(dtTien(tg.thuc_nhan))}</b></td>${o2(tg.mua_moi)}${o2(tg.gia_han)}${o2(tg.mua_le)}${o2(tg.hoan_tien)}${o2(tg.tra_tien)}
+        ${coSs ? `<td class="num">${esc(dtTien(ts.thuc_nhan))}</td><td class="num">${esc(doi(tg.thuc_nhan, ts.thuc_nhan))}</td>` : ''}</tr></tfoot></table></div>`;
+  }
+
+  /** Khối "theo kỳ" của thẻ Doanh thu. ky = kết quả admin_doanh_thu_ky · null (máy chủ chưa có 202) · { error }. st = trạng thái bộ chọn (admin.js giữ). */
+  function dtkKhoi(ky, st) {
+    if (!ky) return `<div class="dtk"><div class="hint" id="dtkChuaCo">${t('Máy chủ chưa có bản vá 202 — chưa xem được theo tuần / tháng / năm, so cùng kỳ và mục tiêu. Phần bên dưới chạy như cũ.')}</div></div>`;
+    if (ky.error === 'forbidden') return '';
+    // Kết quả có hình dạng lạ (không phải của 202) → coi như lỗi: một dòng báo, không vẽ nửa chừng.
+    if (!ky.error && (!Array.isArray(ky.cot) || !['ngay', 'tuan', 'thang', 'nam'].includes(ky.nhom) || ky.cot.some((c) => !c || typeof c !== 'object'))) ky = { error: 'loi' };
+    const chip = (thuoc, k, nhan, dang, khoa) => `<button type="button" class="chip" data-${thuoc}="${k}" aria-pressed="${dang === k}"${khoa ? ' disabled' : ''}>${nhan}</button>`;
+    const cho1 = !!st.dangHoi;       // đang chờ máy chủ trả số cho lựa chọn vừa bấm: khoá bộ chọn tới khi số về
+    const NHOM = [['ngay', t('Ngày')], ['tuan', t('Tuần')], ['thang', t('Tháng')], ['nam', t('Năm')]];
+    const KY = [['thang_nay', t('Tháng này')], ['thang_truoc', t('Tháng trước')], ['quy_nay', t('Quý này')], ['nam_nay', t('Năm nay')], ['nam_truoc', t('Năm trước')], ['12_thang', t('12 tháng')], ['tat_ca', t('Tất cả')]];
+    const SS = [['khong', t('Không so sánh')], ['ky_truoc', t('Kỳ trước')], ['cung_ky_nam_truoc', t('Cùng kỳ năm trước')]];
+    const KIEU = [['thuc_nhan', t('Thực nhận (USD)')], ['gop', t('Doanh thu gộp (USD)')], ['gd', t('Số giao dịch')]];
+    const tuy = st.ky === 'tuy_chon';
+    const chon = `<div class="card cd-loc" id="dtkChon"${cho1 ? ' aria-busy="true" style="opacity:.6"' : ''}>
+      <div class="cd-lr"><span class="cd-lb">${t('Xem theo')}</span><div class="chips" role="group" aria-label="${t('Xem theo')}">${NHOM.map(([k, l]) => chip('dtk-nhom', k, l, st.nhom, cho1)).join('')}</div></div>
+      <div class="cd-lr"><span class="cd-lb">${t('Khoảng')}</span><div class="chips" role="group" aria-label="${t('Khoảng')}">${KY.map(([k, l]) => chip('dtk-ky', k, l, st.ky, cho1)).join('')}${chip('dtk-ky', 'tuy_chon', t('Tuỳ chọn'), st.ky, cho1)}</div></div>
+      ${tuy ? `<div class="cd-lr"><span class="cd-lb"></span><div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px">${t('Từ ngày')}<input id="dtkTu" type="date" value="${esc(st.tuNhap != null ? st.tuNhap : st.tu || '')}"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px">${t('Đến ngày')}<input id="dtkDen" type="date" value="${esc(st.denNhap != null ? st.denNhap : st.den || '')}"></label>
+          <button type="button" class="btn sm" id="dtkXem">${t('Xem')}</button><span class="hint" id="dtkLoiNgay"${st.loiNgay ? ' role="alert"' : ''}>${esc(st.loiNgay || '')}</span></div></div>` : ''}
+      <div class="cd-lr"><span class="cd-lb">${t('So sánh')}</span><div class="chips" role="group" aria-label="${t('So sánh')}">${SS.map(([k, l]) => chip('dtk-ss', k, l, st.ss, cho1)).join('')}</div></div>
+    </div>`;
+    if (ky.error) {
+      const loi = ky.error === 'qua_nhieu_cot' ? `${t('Khoảng này có')} ${so(ky.so_cot)} ${t('cột — tối đa')} ${so(ky.toi_da)}. ${t('Chọn Tuần / Tháng / Năm, hoặc rút ngắn khoảng.')}`
+        : ky.error === 'khoang_qua_dai' ? t('Khoảng dài quá 5 năm. Rút ngắn khoảng.')
+        : ky.error === 'khoang_nguoc' ? t('Ngày bắt đầu đang sau ngày kết thúc.')
+        : ky.error === 'ngay_sai' ? t('Ngày không hợp lệ. Chọn lại hai ngày (từ năm 2020).')
+        : t('Máy chủ không trả được số liệu theo kỳ.');
+      return `<div class="dtk"><div class="sec lon"><h2>${t('Theo kỳ')}</h2></div>${chon}<div class="alertbar warn" id="dtkLoi" role="status"><div>${esc(loi)}</div></div></div>`;
+    }
+    const kieu = ['thuc_nhan', 'gop', 'gd'].includes(st.so) ? st.so : 'thuc_nhan';
+    const coSs = ky.so_sanh !== 'khong';
+    const cot = ky.cot || [], tg = ky.tong || {}, ts = ky.tong_ss || {};
+    const trong = !(ky.so || {}).co_giao_dich;
+    const mt = ky.muc_tieu || {};
+    const mucTieu = kieu === 'thuc_nhan' ? [{ usd: n0(mt.thap), nhan: t('Mục tiêu thấp') }, { usd: n0(mt.cao), nhan: t('Mục tiêu cao') }].filter((m) => m.usd > 0) : [];
+    const coDuongMt = mucTieu.length && ky.nhom !== 'tuan';
+    const maxCot = Math.max(0, ...cot.map((c) => dtkGt(c, kieu)), ...cot.map((c) => (coSs && c.ss && c.ss.co ? dtkGt(c.ss, kieu) : 0)));
+    const ngoaiKhung = coDuongMt ? mucTieu.filter((m) => { const v = cot.map((c) => dtkMucTieuCot(c, ky.nhom, m.usd)); return !(maxCot > 0 && Math.max(...v) <= maxCot * DTK_MT_TOI_DA); }) : [];
+    const tenKieu = KIEU.find(([k]) => k === kieu)[1];
+    const tongHien = kieu === 'gd' ? so(tg.tra_tien) : esc(dtTien(kieu === 'gop' ? tg.gop : tg.thuc_nhan));
+    const tongSs = kieu === 'gd' ? n0(ts.tra_tien) : n0(kieu === 'gop' ? ts.gop : ts.thuc_nhan);
+    const bieuDo = the(`${t('Theo kỳ')} — ${NHOM.find(([k]) => k === ky.nhom)[1]}`, `${esc(fmtNgayDt(ky.tu_ngay))} → ${esc(fmtNgayDt(ky.den_ngay))} · ${esc(ky.tz || '')}${ky.tz_khong_hop_le ? ` (${t('múi giờ của trình duyệt không dùng được — đang tính theo giờ Việt Nam')})` : ''}`,
+      `<div class="row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;justify-content:space-between">
+         <span class="chips" role="group" aria-label="${t('Số liệu')}">${KIEU.map(([k, l]) => chip('dtk-so', k, l, kieu)).join('')}</span>
+         <span class="row" style="gap:8px"><b>${t('Tổng')}: ${tongHien}</b>${coSs ? `<span class="hint">${t('kỳ so sánh')}: ${kieu === 'gd' ? so(tongSs) : esc(dtTien(tongSs))} ${dtkHuyHieu(n0(kieu === 'gd' ? tg.tra_tien : kieu === 'gop' ? tg.gop : tg.thuc_nhan), tongSs)}</span>` : ''}
+           <button type="button" class="btn sm" id="dtkCsv">${t('Xuất CSV')}</button></span></div>
+       ${trong ? `<div class="alertbar ok" id="dtkTrong"><div>${t('Chưa có giao dịch — số liệu sẽ hiện khi có lượt mua đầu tiên')}</div></div>` : ''}
+       ${chuThich([{ ten: tenKieu, mau: 'var(--primary)' }, ...(coSs ? [{ ten: t('Kỳ so sánh'), mau: 'color-mix(in srgb, var(--primary) 35%, transparent)' }] : []),
+          ...(coDuongMt ? mucTieu.filter((m) => !ngoaiKhung.includes(m)).map((m, k) => ({ ten: `${m.nhan} (${ky.nhom === 'ngay' ? t('chia đều theo ngày') : ky.nhom === 'nam' ? t('× 12 tháng') : t('mỗi tháng')})`, mau: k ? 'var(--pt-s3)' : 'var(--pt-s2)' })) : [])])}
+       ${cot.length ? cho((W) => { try { return cotKy(cot, { nhom: ky.nhom, kieu, coSs, mucTieu: coDuongMt ? mucTieu : [], ten: tenKieu, W }); } catch (e) { return ''; } }) : `<div class="hint">${t('Chưa có dữ liệu.')}</div>`}
+       ${ngoaiKhung.length ? `<div class="hint" id="dtkMtNgoai">${t('Đường mục tiêu không vẽ vì cao hơn nhiều lần cột cao nhất')}: ${ngoaiKhung.map((m) => `${esc(m.nhan)} ${esc(dtTien(dtkMucTieuCot(cot[cot.length - 1], ky.nhom, m.usd)))}`).join(' · ')}.</div>` : ''}
+       ${mucTieu.length && ky.nhom === 'tuan' ? `<div class="hint">${t('Xem theo tuần không có đường mục tiêu (mục tiêu tính theo tháng).')}</div>` : ''}
+       ${ky.cat_5_nam ? `<div class="hint">${t('"Tất cả" đang hiện 5 năm gần nhất.')}</div>` : ''}
+       ${n0(tg.thieu_ti_le) ? `<div class="hint">${so(tg.thieu_ti_le)} ${t('giao dịch chưa rõ thuế / phí')} — ${t('chưa cộng vào thực nhận.')}</div>` : ''}
+       ${dtkBang(ky)}`, 'dtkBieuDo');
+    return `<div class="dtk"><div class="sec lon"><h2>${t('Theo kỳ')}</h2><span class="hint">${t('ngày, tuần, tháng, năm — so cùng kỳ — mục tiêu tháng')}</span></div>${chon}${dtkThangNay(ky, st)}${bieuDo}</div>`;
+  }
+
+  /** Khối theo kỳ không bao giờ được làm hỏng phần cũ của thẻ: gặp điều bất ngờ → một dòng báo lỗi, phần bên dưới vẫn vẽ. */
+  function dtkAnToan(ky, st) { try { return dtkKhoi(ky, st); } catch (e) { try { return dtkKhoi({ error: 'loi' }, st); } catch (e2) { return ''; } } }
+
+  /** Nối nút của khối theo kỳ. tt: { dt, doiKy(fn) (đổi bộ chọn rồi hỏi lại máy chủ), veLai() (vẽ lại, không hỏi máy chủ), datMucTieu(thap, cao) → Promise, tai(ten, noiDung) }. */
+  let dtkTieuDiem = '';       // bộ chọn CSS của nút cần nhận lại tiêu điểm sau lần vẽ kế tiếp (bấm nút → khối được vẽ lại bằng DOM mới)
+  /** Trước khi vẽ lại mà không do một cú bấm (tự làm mới): nhớ nút / ô của khối theo kỳ đang giữ tiêu điểm. Chỉ nhận tên thuộc tính và id do chính tệp này sinh ra. */
+  function dtkNhoTieuDiem(main) {
+    if (dtkTieuDiem) return;
+    const a = document.activeElement;
+    if (!a || !a.closest || !main.contains(a) || !a.closest('.dtk')) return;
+    const tn = Array.from(a.attributes || []).find((x) => /^data-dtk-(nhom|ky|ss|so)$/.test(x.name) && /^[a-z0-9_]+$/.test(x.value));
+    dtkTieuDiem = tn ? `[${tn.name}="${tn.value}"]` : (/^dtk[A-Za-z]+$/.test(a.id || '') ? `#${a.id}` : '');
+  }
+  function dtkNoi(main, ky, tt) {
+    const st = tt.dt;
+    if (dtkTieuDiem) {
+      const dich = main.querySelector(dtkTieuDiem), a = document.activeElement;
+      dtkTieuDiem = '';
+      // chỉ đặt lại khi tiêu điểm đang "rơi" (nút cũ đã bị thay) hoặc còn trong thẻ này — không giật tiêu điểm khỏi hộp thoại / ô nhập ở nơi khác
+      if (dich && !dich.disabled && (!a || a === document.body || !a.isConnected || main.contains(a))) { try { dich.focus({ preventScroll: true }); } catch (e) { /* trình duyệt cũ */ } }
+    }
+    const khoa = () => { const k = main.querySelector('#dtkChon'); if (k) { k.setAttribute('aria-busy', 'true'); k.style.opacity = '.6'; k.querySelectorAll('button,input').forEach((b) => { b.disabled = true; }); } };
+    const nut = (thuoc, fn) => main.querySelectorAll(`[data-${thuoc}]`).forEach((b) => b.addEventListener('click', () => { const k = b.getAttribute(`data-${thuoc}`); dtkTieuDiem = `[data-${thuoc}="${k}"]`; fn(k); }));
+    nut('dtk-nhom', (k) => { khoa(); tt.doiKy((s) => { s.nhom = k; }); });
+    nut('dtk-ss', (k) => { khoa(); tt.doiKy((s) => { s.ss = k; }); });
+    nut('dtk-so', (k) => { st.so = k; tt.veLai(); });
+    nut('dtk-ky', (k) => {
+      if (k === 'tuy_chon') { st.ky = 'tuy_chon'; st.loiNgay = ''; if (!st.tu && ky && ky.tu_ngay) { st.tu = ky.tu_ngay; st.den = ky.den_ngay; } dtkTieuDiem = '#dtkTu'; tt.veLai(); return; }
+      khoa(); tt.doiKy((s) => { s.ky = k; s.loiNgay = ''; s.tuNhap = null; s.denNhap = null; });
+    });
+    // hai ô ngày: giữ điều đang gõ dở (lượt tự làm mới không được xoá mất) — chỉ thành khoảng thật khi bấm "Xem" và hợp lệ
+    const oTu = main.querySelector('#dtkTu'), oDen = main.querySelector('#dtkDen');
+    if (oTu) oTu.addEventListener('input', () => { st.tuNhap = oTu.value; });
+    if (oDen) oDen.addEventListener('input', () => { st.denNhap = oDen.value; });
+    const xem = main.querySelector('#dtkXem');
+    if (xem) xem.addEventListener('click', () => {
+      const tu = (main.querySelector('#dtkTu') || {}).value || '', den = (main.querySelector('#dtkDen') || {}).value || '';
+      const ok = /^\d{4}-\d{2}-\d{2}$/.test(tu) && /^\d{4}-\d{2}-\d{2}$/.test(den);
+      if (!ok) { st.loiNgay = t('Chọn đủ hai ngày.'); st.tuNhap = tu; st.denNhap = den; dtkTieuDiem = '#dtkTu'; tt.veLai(); return; }
+      if (tu > den) { st.loiNgay = t('Ngày bắt đầu đang sau ngày kết thúc.'); st.tuNhap = tu; st.denNhap = den; dtkTieuDiem = '#dtkTu'; tt.veLai(); return; }
+      dtkTieuDiem = '#dtkXem'; khoa(); tt.doiKy((s) => { s.ky = 'tuy_chon'; s.tu = tu; s.den = den; s.loiNgay = ''; s.tuNhap = null; s.denNhap = null; });
+    });
+    const csv = main.querySelector('#dtkCsv');
+    if (csv && ky && !ky.error) csv.addEventListener('click', () => tt.tai(dtkTenTep(ky), dtkCsv(ky)));
+    const mo = main.querySelector('#dtkMtMo');
+    if (mo) mo.addEventListener('click', () => { st.mtMo = true; st.mtXacNhan = false; st.mtLoi = ''; st.mtThap = null; st.mtCao = null; dtkTieuDiem = '#dtkMtThap'; tt.veLai(); });
+    const huy = main.querySelector('#dtkMtHuy');
+    if (huy) huy.addEventListener('click', () => { st.mtMo = false; st.mtXacNhan = false; st.mtLoi = ''; st.mtThap = null; st.mtCao = null; dtkTieuDiem = '#dtkMtMo'; tt.veLai(); });
+    const luu = main.querySelector('#dtkMtLuu');
+    if (luu) luu.addEventListener('click', () => {
+      const a = Number((main.querySelector('#dtkMtThap') || {}).value), b = Number((main.querySelector('#dtkMtCao') || {}).value);
+      st.mtThap = a; st.mtCao = b;
+      if (!dtkSoMucTieu(a) || !dtkSoMucTieu(b)) st.mtLoi = t('Mỗi mục tiêu phải lớn hơn 0, không quá 10 000 000 và tối đa hai chữ số thập phân.');
+      else if (a > b) st.mtLoi = t('Mục tiêu thấp không được lớn hơn mục tiêu cao.');
+      else { st.mtLoi = ''; st.mtXacNhan = true; st.mtThap = Math.round(a * 100) / 100; st.mtCao = Math.round(b * 100) / 100; }
+      dtkTieuDiem = st.mtXacNhan ? '#dtkMtXacNhan' : '#dtkMtThap';
+      tt.veLai();
+    });
+    const xn = main.querySelector('#dtkMtXacNhan');
+    if (xn) xn.addEventListener('click', () => {
+      xn.disabled = true;
+      tt.datMucTieu(st.mtThap, st.mtCao).then((r) => {
+        if (r && r.ok) { st.mtMo = false; st.mtXacNhan = false; st.mtLoi = ''; st.mtThap = null; st.mtCao = null; dtkTieuDiem = '#dtkMtMo'; tt.doiKy(() => undefined); return; }
+        st.mtXacNhan = false; dtkTieuDiem = '#dtkMtThap';
+        st.mtLoi = r && r.error === 'forbidden' ? t('Chỉ vai Chủ (owner) đặt được mục tiêu.')
+          : r && r.error === 'mfa' ? t('Cần xác thực hai lớp để đổi mục tiêu. Vào Hệ thống → Vận hành để bật, rồi đăng nhập lại.')
+          : r && r.error === 'thu_tu' ? t('Mục tiêu thấp không được lớn hơn mục tiêu cao.')
+          : r && r.error === 'so_sai' ? t('Mỗi mục tiêu phải lớn hơn 0, không quá 10 000 000 và tối đa hai chữ số thập phân.')
+          : t('Chưa đổi được mục tiêu. Thử lại.');
+        tt.veLai();
+      });
+    });
+  }
+
+  /** Các hàm thuần của khối theo kỳ — để bộ kiểm tĩnh gọi thẳng (đưa ngữ cảnh t / esc / so vào trước). */
+  const dtkThu = (ctx) => { C = ctx; return { csvO, dtkCsv, dtkTenTep, dtkMucTieuCot, dtkNhan, dtkKhoi, dtkAnToan, cotKy, dtkSoMucTieu, dtkHuyHieu }; };
+
+  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, goiY, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, dtkThu, chuGiai: ganChuGiai };
 })();
