@@ -1053,8 +1053,16 @@
   function chanDungTomTat(o, ctx) {
     C = ctx;
     if (!o || o.it || !o.tong) return '';
-    const s = cdTomTat(o, ['quoc_gia', 'vai_tro', 'tuoi']);
-    return s ? the(t('Người dùng là ai'), `${so(o.tong)} ${t('người dùng')} · <a href="#phantich/chandung">${t('Xem chân dung đầy đủ')} →</a>`, s) : '';
+    // Tổng quan: ba vòng tròn (3 nhóm lớn nhất + "Còn lại"). Ô dưới ngưỡng ẩn danh (it) gộp vào "Còn lại".
+    const s = ['quoc_gia', 'vai_tro', 'tuoi'].map((chieu) => {
+      const ds = ((o.chieu || {})[chieu] || []).filter((x) => !x.it).map((x) => ({ k: String(x.k), n: Number(x.n) || 0 })).sort((x, y) => y.n - x.n).slice(0, 3);
+      if (!ds.length) return '';
+      const conLai = Math.max(0, o.tong - ds.reduce((x, y) => x + y.n, 0));
+      const phan = ds.map((d, i) => ({ ten: cdNhan(chieu, d.k), n: d.n, mau: TQ([1, 2, 7][i]) }));   // cùng màu với vòng "Người dùng theo quốc gia" bên trên
+      if (conLai > 0) phan.push({ ten: t('Còn lại'), n: conLai, mau: 'var(--tq-khac)' });
+      return `<div><h4 class="tq-h4">${esc(cdTenChieu(chieu))}</h4>${tronKhuyet(phan, { phuGiua: t('người dùng') })}</div>`;
+    }).filter(Boolean);
+    return s.length ? the(t('Người dùng là ai'), `${so(o.tong)} ${t('người dùng')} · <a href="#phantich/chandung">${t('Xem chân dung đầy đủ')} →</a>`, `<div class="tq-luoi3 tq-cd3">${s.join('')}</div>`) : '';
   }
 
   // ---------------------------------------------------------------- DOANH THU (168)
@@ -1514,8 +1522,527 @@
     });
   }
 
+  // ================================================================ TỔNG QUAN — DASHBOARD (19/11/2026, bản 3 sau ba lượt kiểm độc lập)
+  // Chủ dự án: "dashboard thật đẹp và đầy đủ hầu hết các dữ liệu", "các biểu đồ khác nhau rồi màu sắc cho đẹp lên như Tableau", "nhìn dashboard là
+  // phải biết được insight", "phải đẹp thẩm mỹ, vẫn phải đúng dữ liệu thực tế". Tài liệu: docs/release/DASHBOARD-QUAN-TRI.md.
+  // Thứ tự nhóm: Hôm nay · Tăng trưởng · Doanh thu · An toàn & nội dung · Người dùng · Hệ thống · Điều đáng chú ý · Cần làm ngay (hai nhóm cuối theo
+  // ý chủ dự án; có việc gấp thì thanh đi nhanh dính trên đầu hiện nút đỏ nêu việc gấp nhất).
+  // Luật số liệu: chỉ so NGÀY TRỌN (hôm nay chưa hết ngày không đem so); ngày của máy chủ là ngày UTC — ghi rõ; ngày trước khi có số hoạt động
+  // (do_tu) là "chưa có dữ liệu", không phải 0; mỗi nhãn nói đúng điều trường đó đếm; mẫu nhỏ thì không kết luận.
+  // Màu: --tq-1..8 phân loại (đã chạy bộ kiểm mù màu sáng + tối); xanh / vàng / đỏ chỉ cho TRẠNG THÁI, luôn kèm chữ.
+  // Tệp này chỉ vẽ; admin.js gọi máy chủ.
+  const TQ = (i) => `var(--tq-${i})`;
+  let tqId = 0;
+  const KHAC = '\u0001khac';
+  function spark(gt, mau, W = 132, H = 34) {
+    const v = (gt || []).filter((x) => x != null).map(n0); if (v.length < 2) return '';
+    const max = Math.max(...v), min = Math.min(0, ...v), cao = Math.max(1, max - min);
+    const x = (i) => 2 + (i * (W - 6)) / (v.length - 1);
+    const y = (a) => H - 3 - ((a - min) / cao) * (H - 8);
+    const d = v.map((a, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(a).toFixed(1)}`).join('');
+    return `<svg class="tq-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}L${x(v.length - 1).toFixed(1)},${H}L${x(0)},${H}Z" fill="${mau}" fill-opacity=".13"/>`
+      + `<path d="${d}" fill="none" stroke="${mau}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+  }
+  /** Ô số: chấm màu + nhãn, giá trị, dòng so sánh (đã kèm chữ nói so với gì), dòng phụ, đường nhỏ. */
+  function tqO({ nhan, gt, so2, phu, duong: dg, mau = TQ(1), go, canh, vong }) {
+    return `<div class="tq-kpi${canh ? ` tq-${canh}` : ''}"${go ? ` data-go="${go}" tabindex="0" role="link"` : ''} style="--c:${mau}">
+      <div class="tq-kl"><i aria-hidden="true"></i>${esc(nhan)}</div>${vong != null ? `<div class="tq-kvr"><div class="tq-kv">${gt}</div><span class="tq-kvong" aria-hidden="true">${vongPt(vong, { mau, co: 46, day: 6 })}</span></div>` : `<div class="tq-kv">${gt}</div>`}
+      ${so2 ? `<div class="tq-kb">${so2}</div>` : ''}${phu ? `<div class="tq-kp">${phu}</div>` : ''}${dg ? spark(dg, mau) : ''}</div>`;
+  }
+  const tqThe = (tieuDe, phu, than, { cot = 6, go } = {}) => `<section class="card tq-the tq-c${cot}">
+    <div class="tq-th"><div><h3>${esc(tieuDe)}</h3>${phu ? `<span class="hint">${phu}</span>` : ''}</div>${go ? `<button class="tq-xem" data-go="${go}">${t('Xem chi tiết')} →</button>` : ''}</div>${than}</section>`;
+  /** "▲ 12%" kèm chữ nói so với gì; đổi dưới 0,5 % → "không đổi". tot: 'len' | 'xuong'. */
+  function soVoi(cur, prev, voi, tot = 'len') {
+    if (cur == null || prev == null) return '';
+    if (!n0(prev)) return n0(cur) ? `<span class="pt-d pt-d0">${t('mới có')}</span> <span>${esc(voi)}</span>` : '';
+    const p = ((n0(cur) - n0(prev)) / n0(prev)) * 100;
+    if (Math.abs(p) < 0.5) return `<span class="pt-d pt-d0">${t('không đổi')}</span> <span>${esc(voi)}</span>`;
+    return `${bienDong(n0(cur), n0(prev), tot)} <span>${esc(voi)}</span>`;
+  }
+  /** Đổi của một TỈ LỆ: "+2,1 điểm" (không phải % của %). */
+  function diem(cur, prev, voi) {
+    if (cur == null || prev == null) return '';
+    const d = Math.round((cur - prev) * 10) / 10;
+    const cls = Math.abs(d) < 0.5 ? 'pt-d0' : d > 0 ? 'pt-dtot' : 'pt-dxau';
+    return `<span class="pt-d ${cls}">${Math.abs(d) < 0.5 ? t('không đổi') : `${d > 0 ? '+' : '−'}${so(Math.abs(d))} ${t('điểm')}`}</span> <span>${esc(voi)}</span>`;
+  }
+
+  /** Vùng / đường, MỘT trục. Rê chuột → đường dò + chấm + chú giải. Cả biểu đồ là MỘT điểm dừng bàn phím, nhãn đọc màn hình là câu tóm tắt. */
+  function vung(chuoi, nhan, { cao = 220, W = 640, tien, nhanTruc, tomTat = '' } = {}) {
+    const H = cao, L = 50, R = 14, T = 12, B = 26, n = nhan.length;
+    const max = Math.max(1, ...chuoi.flatMap((c) => c.gt.filter((v) => v != null).map(n0)));
+    const { top, ticks } = mocTruc(max);
+    const x = (i) => L + (n <= 1 ? 0 : (i * (W - L - R)) / (n - 1));
+    const y = (v) => T + (H - T - B) * (1 - v / top);
+    const hien = (v) => (tien ? tien(v) : so(v));
+    const luoi = ticks.map((v) => `<line class="pt-grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="pt-ax" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${esc(tien ? tien(v, true) : so(v))}</text>`).join('');
+    const bn = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(W / 74))));
+    const truc = (nhanTruc || nhan).map((s, i) => (i % bn === 0 || i === n - 1) && !(i !== n - 1 && n - 1 - i < bn / 2) ? `<text class="pt-ax" x="${x(i)}" y="${H - 7}" text-anchor="${i === n - 1 ? 'end' : i === 0 ? 'start' : 'middle'}">${esc(s)}</text>` : '').join('');
+    let defs = '';
+    const net = chuoi.map((c) => {
+      let d = ''; let dang = false; let dau = null, cuoi = null;
+      c.gt.forEach((v, i) => { if (v == null) { dang = false; return; } d += `${dang ? 'L' : 'M'}${x(i).toFixed(1)},${y(n0(v)).toFixed(1)}`; dang = true; if (dau == null) dau = i; cuoi = i; });
+      if (!d) return '';
+      let fill = '';
+      if (c.kieu === 'vung' && !c.gt.slice(dau, cuoi + 1).some((v) => v == null)) {
+        const id = `tqg${++tqId}`;
+        defs += `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.mau}" stop-opacity=".30"/><stop offset="1" stop-color="${c.mau}" stop-opacity=".02"/></linearGradient>`;
+        fill = `<path d="${d}L${x(cuoi).toFixed(1)},${y(0)}L${x(dau).toFixed(1)},${y(0)}Z" fill="url(#${id})"/>`;
+      }
+      return `${fill}<path d="${d}" fill="none" stroke="${c.mau}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${c.kieu === 'dut' ? ' stroke-dasharray="5 4"' : ''}/>`;
+    }).join('');
+    const cot = (W - L - R) / Math.max(1, n - 1);
+    const hits = nhan.map((s, i) => {
+      const dong = [s, ...chuoi.map((c) => `${c.ten}: ${c.gt[i] == null ? t('chưa có dữ liệu') : hien(n0(c.gt[i]))}`)].join('\n');
+      const x0 = Math.max(L, x(i) - cot / 2), w = Math.min(cot, W - R - x0);
+      const cham = chuoi.map((c) => (c.gt[i] == null ? '' : `<circle cx="${x(i)}" cy="${y(n0(c.gt[i]))}" r="4.5" fill="${c.mau}" stroke="var(--surface)" stroke-width="2"/>`)).join('');
+      return `<g class="tq-hit" data-tip="${esc(dong)}"><rect x="${x0}" y="${T}" width="${w}" height="${H - T - B}" fill="transparent"/><line class="tq-x" x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${H - B}"/>${cham}</g>`;
+    }).join('');
+    return `<svg class="pt-svg tq-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(tomTat || chuoi.map((c) => c.ten).join(', '))}"><defs>${defs}</defs>${luoi}${truc}${net}${hits}</svg>`;
+  }
+  /** Cột chồng: cot[{nhan, phan:number[]}], lop[{ten, mau}] — khe 2 px chỉ khi đã có phần nằm dưới; đầu cột bo 4 px. */
+  function cotChong(cot, lop, { cao = 200, W = 640, tomTat = '' } = {}) {
+    const H = cao, L = 40, R = 8, T = 10, B = 24, n = cot.length;
+    const { top, ticks } = mocTruc(Math.max(1, ...cot.map((c) => c.phan.reduce((a, b) => a + n0(b), 0))));
+    const bw = (W - L - R) / Math.max(1, n);
+    const k = (H - T - B) / top;
+    const y = (v) => T + (H - T - B) * (1 - v / top);
+    const luoi = ticks.map((v) => `<line class="pt-grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="pt-ax" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${so(v)}</text>`).join('');
+    const bn = Math.max(1, Math.ceil(n / Math.max(3, Math.floor(W / 64))));
+    const cots = cot.map((c, i) => {
+      const x0 = L + i * bw + 1, rong = Math.max(1, bw - 3);
+      let yy = H - B; let parts = ''; let daVe = false;
+      const cuoi = c.phan.map(n0).reduce((a, v, j) => (v > 0 ? j : a), -1);
+      c.phan.forEach((v0, j) => {
+        const v = n0(v0); if (!v) return;
+        const h = v * k; yy -= h;
+        const hv = Math.max(0.5, h - (daVe ? 2 : 0));
+        parts += j === cuoi ? `<path d="${bar(x0, yy, rong, hv)}" fill="${lop[j].mau}"/>` : `<rect x="${x0}" y="${yy}" width="${rong}" height="${hv}" fill="${lop[j].mau}"/>`;
+        daVe = true;
+      });
+      const dong = [c.nhan, ...lop.map((l, j) => `${l.ten}: ${so(n0(c.phan[j]))}`)].join('\n');
+      return `<g class="pt-bar" data-tip="${esc(dong)}"><rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent"/>${parts || `<rect x="${x0}" y="${H - B - 1}" width="${rong}" height="1" fill="var(--line2)"/>`}</g>`
+        + ((i % bn === 0 || i === n - 1) && !(i !== n - 1 && n - 1 - i < bn / 2) ? `<text class="pt-ax" x="${L + i * bw + bw / 2}" y="${H - 7}" text-anchor="middle">${esc(c.nhan)}</text>` : '');
+    }).join('');
+    return `<svg class="pt-svg tq-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(tomTat || lop.map((l) => l.ten).join(', '))}">${luoi}${cots}</svg>`;
+  }
+  /** Tròn khuyết (≤ 5 phần, đã xếp lớn → nhỏ, "Khác" cuối) + chú giải có số và %. */
+  function tronKhuyet(phan, { phuGiua } = {}) {
+    const ds = phan.filter((p) => n0(p.n) > 0);
+    const tong = ds.reduce((a, p) => a + n0(p.n), 0);
+    const S = 168, c = S / 2, r0 = 78, r1 = 50;
+    const pt = (rr, a) => `${(c + rr * Math.cos(a)).toFixed(2)},${(c + rr * Math.sin(a)).toFixed(2)}`;
+    const khe = ds.length > 1 ? 0.035 : 0;
+    let a = -Math.PI / 2; let lat = '';
+    for (const p of ds) {
+      const goc = (n0(p.n) / tong) * Math.PI * 2;
+      const a0 = a + khe / 2, a1 = Math.max(a0 + 0.001, Math.min(a + goc - khe / 2, a0 + Math.PI * 2 - 0.0005));
+      const lon = a1 - a0 > Math.PI ? 1 : 0;
+      lat += `<path class="tq-lat" data-tip="${esc(`${p.ten}: ${so(n0(p.n))} (${so(pct1(n0(p.n), tong))}%)`)}" d="M${pt(r0, a0)}A${r0},${r0} 0 ${lon} 1 ${pt(r0, a1)}L${pt(r1, a1)}A${r1},${r1} 0 ${lon} 0 ${pt(r1, a0)}Z" fill="${p.mau}"/>`;
+      a += goc;
+    }
+    if (!ds.length) lat = `<circle cx="${c}" cy="${c}" r="${(r0 + r1) / 2}" fill="none" stroke="var(--surface2)" stroke-width="${r0 - r1}"/>`;
+    return `<div class="tq-donut"><svg viewBox="0 0 ${S} ${S}" role="img" aria-label="${esc(ds.map((p) => `${p.ten} ${so(pct1(n0(p.n), tong))}%`).join(', '))}">${lat}
+      <text x="${c}" y="${c - 2}" text-anchor="middle" class="tq-dg"${so(tong).length > 5 ? ` style="font-size:${so(tong).length > 8 ? 14 : so(tong).length > 6 ? 16 : 19}px"` : ''}>${esc(so(tong))}</text><text x="${c}" y="${c + 16}" text-anchor="middle" class="tq-dp">${esc(phuGiua || '')}</text></svg>
+      <div class="tq-dl">${phan.map((p) => `<div><i style="background:${p.mau}"></i><span>${esc(p.ten)}</span><b>${so(n0(p.n))}</b><small>${tong ? `${so(pct1(n0(p.n), tong))}%` : '—'}</small></div>`).join('')}</div></div>`;
+  }
+  /** Gộp phần nhỏ: giữ `toiDa − 1` phần lớn nhất; các phần còn lại VÀ mọi phần tên "Khác" gộp thành một "Khác" (cuối). */
+  function gopKhac(ds, toiDa = 5) {
+    const tenKhac = t('Khác');
+    const s = [...ds].filter((x) => n0(x.n) > 0).sort((a, b) => n0(b.n) - n0(a.n));
+    const that = s.filter((x) => x.ten !== tenKhac && x.k !== KHAC); let khac = s.filter((x) => x.ten === tenKhac || x.k === KHAC).reduce((a, x) => a + n0(x.n), 0);
+    const giu = that.length + (khac ? 1 : 0) <= toiDa ? that : that.slice(0, toiDa - 1);
+    khac += that.slice(giu.length).reduce((a, x) => a + n0(x.n), 0);
+    return khac ? [...giu, { ten: tenKhac, k: KHAC, n: khac }] : giu;
+  }
+  const toMau = (ds) => ds.map((p, i) => ({ ...p, mau: p.k === KHAC ? 'var(--tq-khac)' : TQ([1, 2, 7, 5, 4][i] || 1) }));
+  /** Vòng phần trăm cho MỘT tỉ lệ (0–100 %): cung đầy theo %, số ở giữa. mau: màu cung (trạng thái hoặc phân loại). */
+  function vongPt(p, { mau = TQ(1), co = 96, day = 10, nhan = '' } = {}) {
+    const r = (co - day) / 2, c = co / 2, chuVi = 2 * Math.PI * r;
+    const v = p == null ? 0 : Math.max(0, Math.min(100, p));
+    const ve = v > 0 && v < 1 ? 1 : v;                                   // cung nhìn thấy được
+    const chu = p == null ? '—' : v > 0 && v < 1 ? '<1%' : `${so(Math.round(v))}%`;
+    return `<svg class="tq-vong" viewBox="0 0 ${co} ${co}" width="${co}" height="${co}" role="img" aria-label="${esc(`${nhan} ${p == null ? '—' : v > 0 && v < 1 ? '<1%' : `${so(Math.round(v * 10) / 10)}%`}`)}">
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="color-mix(in srgb, var(--ink) 11%, transparent)" stroke-width="${day}"/>
+      ${p == null ? '' : `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${mau}" stroke-width="${day}" stroke-linecap="round" stroke-dasharray="${((ve / 100) * chuVi).toFixed(2)} ${chuVi.toFixed(2)}" transform="rotate(-90 ${c} ${c})"/>`}
+      <text x="${c}" y="${c + 5}" text-anchor="middle" class="tq-vg" style="font-size:${Math.round(co / 5.2)}px">${chu}</text></svg>`;
+  }
+  /** Thanh hạn (100 %): màu TRẠNG THÁI cố định (xanh đậm → xanh nhạt → vàng → đỏ), luôn kèm chữ + số. */
+  function thanhHan(phan) {
+    const tong = phan.reduce((a, p) => a + n0(p.n), 0);
+    if (!tong) return `<div class="tq-ok-dong"><span class="tag ok">✓</span> ${t('Không có báo cáo nào đang mở')}</div>`;
+    return `<div class="tq-han" role="img" aria-label="${esc(phan.map((p) => `${p.ten}: ${n0(p.n)}`).join(', '))}">${phan.filter((p) => n0(p.n) > 0).map((p) => `<i style="flex:${n0(p.n)};background:var(--${p.m})" data-tip="${esc(`${p.ten}: ${so(n0(p.n))}`)}"></i>`).join('')}</div>
+      <div class="tq-hanl">${phan.map((p) => `<span><i style="background:var(--${p.m})"></i>${esc(p.ten)} <b>${so(n0(p.n))}</b></span>`).join('')}</div>`;
+  }
+  /** Thước dung lượng: đã dùng / giới hạn; không đọc được (null) → "—" (không đoán); ≥ 80 % vàng, ≥ 95 % đỏ, luôn kèm %. */
+  function thuoc(nhan, dung, gioiHan, hien) {
+    const biet = dung != null && n0(gioiHan) > 0;
+    const p = biet ? Math.min(100, (n0(dung) / n0(gioiHan)) * 100) : null;
+    const m = p == null ? 'line2' : p >= 95 ? 'danger' : p >= 80 ? 'warn' : 'ok';
+    const nhanM = p == null ? '' : p >= 95 ? t('gần đầy') : p >= 80 ? t('cần để ý') : t('còn nhiều');
+    return `<div class="tq-thuoc tq-thuoc-vong">${vongPt(p, { mau: `var(--${m})`, co: 104, day: 11, nhan })}
+      <div><div class="tq-tl"><span>${esc(nhan)}</span></div><div class="tq-tp">${biet ? hien : t('không đọc được')}</div>${nhanM ? `<span class="tag ${m === 'ok' ? 'ok' : m === 'warn' ? 'warn' : 'danger'}">${esc(nhanM)}</span>` : ''}</div></div>`;
+  }
+  /** Giữ chân theo TUẦN đăng ký (gộp nhóm theo ngày của máy chủ, cộng SỐ chứ không cộng %): một ô chỉ hiện khi MỌI ngày của tuần đã đủ dữ liệu. */
+  function bangGiuChan(gc) {
+    const tuan = new Map();
+    for (const r of gc || []) {
+      const d = new Date(`${String(r.nhom).slice(0, 10)}T00:00:00Z`); if (isNaN(d)) continue;
+      const thu = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - thu);
+      const k = d.toISOString().slice(0, 10);
+      const o2 = tuan.get(k) || { k, n: 0, ngay: 0, d1: 0, d7: 0, d30: 0, c1: 0, c7: 0, c30: 0, du1: 0, du7: 0, du30: 0 };
+      o2.n += n0(r.so_nguoi); o2.ngay += 1;
+      for (const m of ['1', '7', '30']) if (r[`du_lieu_d${m}`]) { o2[`d${m}`] += n0(r[`d${m}`]); o2[`c${m}`] += n0(r.so_nguoi); o2[`du${m}`] += 1; }
+      tuan.set(k, o2);
+    }
+    const ds = [...tuan.values()].sort((a, b) => (a.k < b.k ? 1 : -1)).slice(0, 8);
+    if (!ds.length) return `<div class="empty">${t('Chưa có người đăng ký trong 90 ngày qua')}</div>`;
+    const o3 = (r, m) => {
+      if (!r[`du${m}`] || r[`du${m}`] < r.ngay) return `<td class="tq-gc0" title="${esc(t('chưa đủ ngày'))}">…</td>`;
+      const a = r[`d${m}`], c = r[`c${m}`]; if (!c) return `<td class="tq-gc0">—</td>`;
+      const p = pct1(a, c); const al = Math.min(1, 0.08 + (p / 60) * 0.92);
+      return `<td class="tq-gc${al > 0.55 ? ' tq-dam' : ''}" style="--a:${al.toFixed(3)}" data-tip="${esc(`${so(a)} / ${so(c)} ${t('người quay lại')}`)}">${so(p)}%</td>`;
+    };
+    return `<div class="scrollx"><table class="tq-gct"><caption class="sr">${t('Giữ chân theo tuần đăng ký')}</caption><thead><tr><th scope="col">${t('Tuần đăng ký')}</th><th scope="col">${t('Người')}</th><th scope="col">${t('Đúng ngày 1')}</th><th scope="col">${t('Đúng ngày 7')}</th><th scope="col">${t('Đúng ngày 30')}</th></tr></thead>
+      <tbody>${ds.map((r) => `<tr><th scope="row">${esc(ngayNgan(r.k))}</th><td class="tq-num">${so(r.n)}</td>${o3(r, '1')}${o3(r, '7')}${o3(r, '30')}</tr>`).join('')}</tbody></table></div>`;
+  }
+  /** Tình trạng mọi tài khoản (KHÔNG phải phễu: các bước không lồng nhau, đếm trên mọi tài khoản) — % so với tổng tài khoản, một hue. */
+  function tqTrangThai(buoc) {
+    const tong = n0((buoc[0] || {}).n);
+    return `<div class="tq-pheu">${buoc.map((b, i) => `<div class="tq-pb"><div class="tq-pt"><span>${esc(b.ten)}</span><b>${so(n0(b.n))}${i && tong ? ` <small>${so(pct1(n0(b.n), tong))}%</small>` : ''}</b></div>
+      <div class="tq-pr"><i style="width:${tong ? Math.max(n0(b.n) ? 1.5 : 0, (n0(b.n) / tong) * 100) : 0}%;background:${TQ(1)};opacity:${(1 - i * 0.18).toFixed(2)}"></i></div>${b.phu ? `<small>${b.phu}</small>` : ''}</div>`).join('')}</div>`;
+  }
+  const gioDv = () => (C.lang() === 'en' ? 'h' : ' giờ');
+  const tenTz = (tz) => (tz === 'Asia/Ho_Chi_Minh' || tz === 'Asia/Saigon' ? t('giờ Việt Nam') : esc(tz || ''));
+  const tenNgonNgu = (k) => { if (k === '?') return t('Chưa rõ'); try { const x = new Intl.DisplayNames([C.locale()], { type: 'language' }).of(k); return x ? x.charAt(0).toUpperCase() + x.slice(1) : k; } catch (e) { return String(k).toUpperCase(); } };
+  const tenGoiTq = (k, thoiHan) => `${dtThoiHan(thoiHan) || String(k)} · ${String(k).includes(':') ? 'Google Play' : 'App Store'}`;
+
+  // ---------------------------------------------------------------- thống kê nhỏ cho "Điều đáng chú ý" (thuần)
+  /** Hồi quy tuyến tính y = a + b·x → độ dốc, R², trung bình (bỏ điểm null). */
+  function hoiQuy(v) {
+    const ds = v.map((y, i) => [i, y]).filter(([, y]) => y != null).map(([i, y]) => [i, n0(y)]); const n = ds.length; if (n < 3) return null;
+    const mx = ds.reduce((a, [i]) => a + i, 0) / n, my = ds.reduce((a, [, y]) => a + y, 0) / n;
+    let sxy = 0, sxx = 0, syy = 0;
+    for (const [i, y] of ds) { sxy += (i - mx) * (y - my); sxx += (i - mx) ** 2; syy += (y - my) ** 2; }
+    if (!sxx || !syy) return { doc: 0, r2: 0, tb: my, n };
+    return { doc: sxy / sxx, r2: (sxy * sxy) / (sxx * syy), tb: my, n };
+  }
+  /** Trung bình trượt 7 ngày (khử nhịp tuần); điểm thiếu → null. */
+  const truot7 = (v) => v.map((_, i) => { const w = v.slice(Math.max(0, i - 6), i + 1); return i < 6 || w.some((x) => x == null) ? null : w.reduce((a, b) => a + n0(b), 0) / 7; });
+  /**
+   * Độ lệch so với CÙNG THỨ ≥ 4 tuần trước, cho số ĐẾM: độ lệch chuẩn không dưới √trung bình (sàn Poisson) → mốc 0 hoặc mốc phẳng vẫn bắt được đột biến.
+   * Bỏ các ngày trước `tuNgay` (chưa có số).
+   */
+  function lechCungThu(ds, key, idx, tuNgay) {
+    const thu = (r) => new Date(`${String(r.day).slice(0, 10)}T00:00:00Z`).getUTCDay();
+    const x = ds[idx]; if (!x || (tuNgay && String(x.day) < tuNgay)) return null;
+    const mau = ds.filter((r, i) => i < idx && thu(r) === thu(x) && !(tuNgay && String(r.day) < tuNgay)).slice(-6).map((r) => n0(r[key]));
+    if (mau.length < 4) return null;
+    const tb2 = mau.reduce((a, b) => a + b, 0) / mau.length;
+    const sd = Math.max(Math.sqrt(mau.reduce((a, b) => a + (b - tb2) ** 2, 0) / (mau.length - 1)), Math.sqrt(Math.max(tb2, 1)));
+    return { x: n0(x[key]), tb: tb2, z: (n0(x[key]) - tb2) / sd, ngay: x.day, tuan: mau.length };
+  }
+  /** Hai số đếm khác nhau thật (không phải dao động ngẫu nhiên): |a − b| ≥ 2·√(a + b). */
+  const demKhac = (a, b) => Math.abs(a - b) >= 2 * Math.sqrt(Math.max(1, a + b));
+  /** Hai tỉ lệ khác nhau thật: kiểm định z hai tỉ lệ, |z| ≥ 2. */
+  function tiLeKhac(x1, n1, x2, n2) {
+    if (!n1 || !n2) return false;
+    const p = (x1 + x2) / (n1 + n2); const se = Math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2));
+    return se > 0 && Math.abs(x1 / n1 - x2 / n2) / se >= 2;
+  }
+  /**
+   * Nhận xét tự động — mỗi câu nêu con số nó dựa vào; chỉ nói khi mẫu đủ lớn VÀ khác biệt vượt mức dao động ngẫu nhiên.
+   * Không lặp việc đã có trong "Cần làm ngay". Trả [{m:'xau'|'tot'|'tt', diem, text, go}], việc xấu trước.
+   */
+  function tqNhanXet(x) {
+    const kq = []; const them = (m, diem2, text, go) => kq.push({ m, diem: diem2, text, go });
+    const { tat, tron, tronT, coTruoc, cl, vh, dt, sc, kho, sys, tuNgay, dinh, nho } = x;
+    if (nho) them('tt', 1, `${C.lang() === 'en' ? `Small sample: ${so(Math.round(x.tbDau))} active ${Math.round(x.tbDau) === 1 ? 'person' : 'people'} a day on average.` : `Mẫu còn nhỏ: trung bình mỗi ngày chỉ có ${so(Math.round(x.tbDau))} người hoạt động.`} ${t('Tỉ lệ và xu hướng dao động mạnh, chưa nên kết luận.')}`);
+    if (!nho) {
+      const homQua = tat.length - 2;
+      for (const [key, ten, tot] of [['dau', t('Người hoạt động'), 'len'], ['dang_ky', t('Đăng ký mới'), 'len'], ['tin', t('Tin nhắn'), 'len'], ['bao_cao', t('Báo cáo'), 'xuong']]) {
+        const l = lechCungThu(tat, key, homQua, key === 'dau' ? tuNgay : null);
+        if (!l || Math.abs(l.z) < 3 || Math.abs(l.x - l.tb) < 5 || (l.tb > 0 && Math.abs(l.x - l.tb) / l.tb < 0.15)) continue;
+        const cao = l.x > l.tb; const xau = (cao && tot === 'xuong') || (!cao && tot === 'len');
+        them(xau ? 'xau' : 'tot', xau ? 9 : 5, `${t('Hôm qua')} ${esc(ngayNgan(l.ngay))}: ${ten} ${so(l.x)}, ${cao ? t('cao khác thường') : t('thấp khác thường')} ${t('so với cùng thứ của')} ${so(l.tuan)} ${t('tuần trước')} (${t('trung bình')} ${so(Math.round(l.tb))}).`, key === 'bao_cao' ? 'antoan/baocao' : 'solieu/tangtruong');
+      }
+      if (tron.length >= 21) {
+        const h = hoiQuy(truot7(tron.map((r) => (tuNgay && String(r.day) < tuNgay ? null : r.dau))));
+        if (h && h.n >= 14 && h.tb > 0 && h.r2 >= 0.5) {
+          const tuan = (h.doc * 7) / h.tb * 100;
+          if (Math.abs(tuan) >= 3) them(tuan > 0 ? 'tot' : 'xau', tuan > 0 ? 4 : 8, `${t('Người hoạt động mỗi ngày đang')} ${tuan > 0 ? t('tăng') : t('giảm')} ${t('khoảng')} ${so(Math.round(Math.abs(tuan) * 10) / 10)}% ${t('mỗi tuần')} (${t('theo trung bình 7 ngày của')} ${so(tron.length)} ${t('ngày trọn gần nhất')}).`, 'solieu/tangtruong');
+        }
+      }
+      if (coTruoc) {
+        const a = tron.reduce((s2, r) => s2 + n0(r.dang_ky), 0), b = tronT.reduce((s2, r) => s2 + n0(r.dang_ky), 0);
+        if (b >= MAU_KHONG_DU && Math.abs(a - b) / b >= 0.15 && demKhac(a, b)) them(a > b ? 'tot' : 'xau', a > b ? 4 : 7, `${t('Đăng ký mới')} ${a > b ? t('tăng') : t('giảm')} ${so(Math.round(Math.abs(pct1(a - b, b))))}% ${t('so với kỳ trước')} (${so(a)} ${t('so với')} ${so(b)}, ${t('không tính hôm nay')}).`, 'solieu/tangtruong');
+      }
+      if (cl) {
+        const c = (cl.kpi.giu_7n || {}).cur || {}, p = (cl.kpi.giu_7n || {}).prev || {};
+        if (n0(c.n) >= MAU_KHONG_DU && n0(p.n) >= MAU_KHONG_DU && tiLeKhac(n0(c.quay), n0(c.n), n0(p.quay), n0(p.n))) {
+          const d1 = pct1(n0(c.quay), n0(c.n)), d0 = pct1(n0(p.quay), n0(p.n));
+          them(d1 > d0 ? 'tot' : 'xau', d1 > d0 ? 4 : 7, `${t('Người mới quay lại trong 7 ngày đầu')}: ${so(d1)}% (${t('kỳ trước')} ${so(d0)}%).`, 'solieu/giuchan');
+        }
+      }
+      if (dinh != null) {
+        if (dinh < 15) them('xau', 5, `${t('Mức dùng hằng ngày')} ${so(dinh)}%: ${t('phần lớn người dùng không mở app mỗi ngày.')}`, 'solieu/tangtruong');
+        else if (dinh >= 40) them('tot', 3, `${t('Mức dùng hằng ngày')} ${so(dinh)}%: ${t('người dùng mở app rất thường xuyên.')}`, 'solieu/tangtruong');
+      }
+      if (vh && (vh.nhiet_28n || []).length >= 24) {
+        const ten = C.lang() === 'en' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy', 'Chủ nhật'];
+        const gio = Array(24).fill(0); let dinh2 = null;
+        for (const o2 of vh.nhiet_28n) { const g2 = Number(o2.g); if (g2 >= 0 && g2 < 24) gio[g2] += n0(o2.n); if (!dinh2 || n0(o2.n) > n0(dinh2.n)) dinh2 = o2; }
+        let vang = 0, it = Infinity;
+        for (let g2 = 0; g2 < 24; g2++) { const s3 = gio[g2] + gio[(g2 + 1) % 24] + gio[(g2 + 2) % 24]; if (s3 < it) { it = s3; vang = g2; } }
+        const hh = (v) => String(Number(v)).padStart(2, '0');
+        if (dinh2 && n0(dinh2.n) && ten[Number(dinh2.t) - 1]) them('tt', 2, `${t('Nhắn tin nhiều nhất vào')} ${ten[Number(dinh2.t) - 1]}, ${hh(dinh2.g)}:00. ${t('Vắng nhất từ')} ${hh(vang)}:00 ${t('đến')} ${hh((vang + 3) % 24)}:00 (${tenTz(vh.tz)}), ${t('hợp để bảo trì.')}`, 'phantich/vanhanh');
+      }
+    }
+    if (dt) {
+      const tb2 = dt.thue_bao || {};
+      if (n0(tb2.loi_thanh_toan) > 0) them('xau', 5, `${t('Thuê bao đang lỗi thanh toán')}: ${so(tb2.loi_thanh_toan)}. ${t('Có thể mất nếu không gia hạn được.')}`, 'solieu/doanhthu');
+      const a = n0(dt.tong.gop), b = n0((dt.truoc || {}).gop), ga = n0(dt.tong.giao_dich), gb = n0((dt.truoc || {}).giao_dich);
+      if (b > 0 && ga >= 20 && gb >= 20 && Math.abs(a - b) / b >= 0.2 && demKhac(ga, gb)) them(a > b ? 'tot' : 'xau', a > b ? 4 : 7, `${t('Doanh thu gộp')} ${a > b ? t('tăng') : t('giảm')} ${so(Math.round(Math.abs(pct1(a - b, b))))}% ${t('so với kỳ trước')} (${t('kỳ này gồm cả hôm nay chưa hết ngày')}).`, 'solieu/doanhthu');
+      if (n0(tb2.sap_het_7d) > 0 && n0(tb2.dang_tra) > 0 && n0(tb2.sap_het_7d) / n0(tb2.dang_tra) >= 0.1) them('tt', 3, `${t('Thuê bao sẽ hết hạn trong 7 ngày tới')}: ${so(tb2.sap_het_7d)} (${so(pct1(n0(tb2.sap_het_7d), n0(tb2.dang_tra)))}% ${t('thuê bao đang còn hạn')}).`, 'solieu/doanhthu');
+    }
+    for (const [ten, a, b] of [[t('Cơ sở dữ liệu'), sc.db_bytes, sc.db_gioi_han], [t('Kho ảnh và video'), kho, sc.kho_gioi_han], [t('Dịch tháng này (DeepL miễn phí)'), sys.dich && sys.dich.ky_tu_thang, sys.dich && sys.dich.han_muc_deepl_free]]) {
+      if (a != null && n0(b) && n0(a) / n0(b) >= 0.8) them('xau', 6, `${ten} ${t('đã dùng')} ${so(Math.round((n0(a) / n0(b)) * 100))}% ${t('hạn mức. Cần nâng gói hoặc dọn bớt.')}`, 'hethong/vanhanh');
+    }
+    const thuTu = { xau: 0, tot: 1, tt: 2 };
+    return kq.sort((p, q) => thuTu[p.m] - thuTu[q.m] || q.diem - p.diem).slice(0, 8);
+  }
+
+  function tongQuan(main, d, ctx) {
+    C = ctx; tqId = 0;
+    { const tip0 = document.querySelector('.pt-tip'); if (tip0) tip0.hidden = true; }      // chú giải cũ không treo lại sau lượt vẽ mới
+    const s = d.s || {}, sf = d.sf || {}, g = d.g || {}, hn = g.hom_nay || {}, sla = sf.sla || {};
+    const cl = d.cl && d.cl.kpi ? d.cl : null, k = cl ? cl.kpi : {};
+    const vh = d.vh && d.vh.hien_tai ? d.vh : null, dt = d.dthu && !d.dthu.error && d.dthu.tong ? d.dthu : null;
+    const ky = d.ky;
+    const tuNgay = g.do_tu ? String(g.do_tu).slice(0, 10) : null;           // trước ngày này máy chủ chưa ghi số hoạt động → "chưa có dữ liệu", không phải 0
+    const dauCo = (r) => !(tuNgay && String(r.day) < tuNgay);
+    // admin.js xin 2 × kỳ (tối thiểu 42 ngày): nửa sau = kỳ này, nửa trước = kỳ trước cùng độ dài. NGÀY TRỌN = bỏ ngày cuối (hôm nay) ở cả hai.
+    const tat = g.series || [];
+    const series = tat.slice(-ky), truoc = tat.slice(0, Math.max(0, tat.length - ky)).slice(-ky);
+    const tron = series.slice(0, -1), tronT = truoc.slice(0, -1);
+    const coTruoc = truoc.length === series.length && series.length > 1;
+    const coTruocDau = coTruoc && truoc.every(dauCo);
+    const nhanNgay = series.map((r) => ngayNgan(r.day));
+    const cot = (ds, key) => ds.map((r) => n0(r[key]));
+    const cotDau = (ds) => ds.map((r) => (dauCo(r) ? n0(r.dau) : null));
+    const tong = (ds, key) => cot(ds, key).reduce((a, b) => a + b, 0);
+    const tbDauCua = (ds) => { const v = cotDau(ds).filter((x) => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; };
+    const choAnh = sf.anh_cho || {}; const tongAnh = n0(choAnh.ho_so) + n0(choAnh.bai) + n0(choAnh.album);
+    const kp = (x) => (x && typeof x === 'object' ? x : {});
+    const pt = (a, b) => (n0(b) ? `${so(pct1(n0(a), n0(b)))}%` : '—');
+    const thieu = [];
+    const may = d.thieuMay || new Set();              // hàm máy chủ CHƯA CÓ (không phải lỗi tạm, không phải thiếu quyền, không phải mẫu nhỏ)
+    const nhom = (id, tieuDe, tomTat, the2) => `<div class="tq-nhom tq-c12" id="${id}"><div class="tq-nh"><h2>${esc(tieuDe)}</h2>${tomTat ? `<p>${tomTat}</p>` : ''}</div></div>${the2}`;
+    // ngày của máy chủ là ngày UTC: nói rõ lúc "hôm nay" bắt đầu theo giờ máy người xem
+    const nayUtc = new Date(); const dauNgay = new Date(Date.UTC(nayUtc.getUTCFullYear(), nayUtc.getUTCMonth(), nayUtc.getUTCDate()));
+    const gioDauNgay = dauNgay.toLocaleTimeString(C.locale(), { hour: '2-digit', minute: '2-digit' });
+    const ghiUtc = `${t('ngày theo giờ UTC, bắt đầu lúc')} ${esc(gioDauNgay)} ${t('giờ máy bạn')}`;
+
+    // ================================================================ HÔM NAY
+    const homNay = series[series.length - 1] || {};
+    const homQua = tat[tat.length - 2] || null, homQuaT = tat[tat.length - 9] || null;     // hai ngày TRỌN: hôm qua và cùng thứ tuần trước
+    const hqSo = (key, tot = 'len') => (homQua ? `<span>${t('hôm qua')} <b>${so(n0(homQua[key]))}</b></span>${homQuaT && (key !== 'dau' || (dauCo(homQua) && dauCo(homQuaT))) ? ` ${soVoi(n0(homQua[key]), n0(homQuaT[key]), t('so với cùng thứ tuần trước'), tot)}` : ''}` : '');
+    const ht = vh ? vh.hien_tai || {} : {};
+    const goiN = n0(ht.dang_goi) + n0(ht.dang_goi_nhom);
+    const oHom = [
+      tqO({ nhan: t('Hoạt động hôm nay'), gt: so(hn.dau), mau: TQ(2), go: 'solieu/tangtruong', so2: hqSo('dau') }),
+      tqO({ nhan: t('Đăng ký hôm nay'), gt: so(hn.moi_hom_nay != null ? hn.moi_hom_nay : homNay.dang_ky), mau: TQ(5), go: 'solieu/tangtruong', so2: hqSo('dang_ky') }),
+      tqO({ nhan: t('Tin nhắn 24 giờ gần nhất'), gt: so(s.messages_24h), mau: TQ(7), so2: homQua ? `<span>${t('hôm qua')} <b>${so(n0(homQua.tin))}</b></span>` : '' }),
+      tqO({ nhan: t('Báo cáo mới hôm nay'), gt: so(homNay.bao_cao), mau: TQ(8), go: 'antoan/baocao', so2: hqSo('bao_cao', 'xuong') }),
+      vh ? tqO({ nhan: t('Đang gọi lúc này'), gt: so(goiN), mau: TQ(4), phu: `${t('trong đó gọi nhóm')}: ${so(n0(ht.dang_goi_nhom))}` }) : '',
+    ].join('');
+    const theoGio = vh ? vh.theo_gio || [] : [];
+    const gioThe = theoGio.length ? tqThe(t('48 giờ qua'), `${t('tin nhắn và người gửi mỗi giờ')} · ${tenTz(vh.tz)}`,
+      chuThich([{ ten: t('Tin nhắn'), mau: TQ(7) }, { ten: t('Người gửi'), mau: TQ(5) }])
+      + cho((W) => vung([{ ten: t('Tin nhắn'), mau: TQ(7), gt: theoGio.map((r) => n0(r.tin)), kieu: 'vung' }, { ten: t('Người gửi'), mau: TQ(5), gt: theoGio.map((r) => n0(r.nguoi)), kieu: 'duong' }],
+        theoGio.map((r) => `${String(r.gio).slice(8, 10)}/${String(r.gio).slice(5, 7)} ${String(r.gio).slice(11, 13)}:00`),
+        { W, cao: 200, nhanTruc: theoGio.map((r) => (String(r.gio).slice(11, 13) === '00' ? `${String(r.gio).slice(8, 10)}/${String(r.gio).slice(5, 7)}` : `${String(r.gio).slice(11, 13)}h`)),
+          tomTat: `${t('Tin nhắn 48 giờ qua')}: ${so(theoGio.reduce((a, r) => a + n0(r.tin), 0))}` })), { cot: 6, go: 'phantich/vanhanh' }) : '';
+    const nhietThe = vh && (vh.nhiet_28n || []).length ? tqThe(t('Lúc nào người dùng nhắn tin nhiều nhất'), `${t('28 ngày qua')} · ${tenTz(vh.tz)}`, nhiet(vh.nhiet_28n), { cot: 6, go: 'phantich/vanhanh' }) : '';
+    if (!vh && may.has('vh')) thieu.push(t('Nhịp theo giờ'));
+    const tomHom = `${t('Đến lúc này')}: ${so(hn.dau)} ${t('người hoạt động')} · ${so(s.messages_24h)} ${t('tin nhắn trong 24 giờ gần nhất')} · ${ghiUtc}`;
+
+    // ================================================================ TĂNG TRƯỞNG
+    const giu7 = cl ? kp(kp(k.giu_7n).cur) : {}, giu7t = cl ? kp(kp(k.giu_7n).prev) : {};
+    const dauTb = tbDauCua(tron.length ? tron : series), dauTbT = coTruocDau ? tbDauCua(tronT) : null;
+    // mức dùng hằng ngày = DAU trung bình 7 ngày TRỌN gần nhất ÷ MAU (không dùng DAU của hôm nay chưa hết ngày)
+    const v7 = cotDau(tat.slice(-8, -1)).filter((x2) => x2 != null);                  // trung bình KHÔNG làm tròn trước khi chia
+    const dinh = v7.length && n0(hn.mau) ? Math.round(((v7.reduce((a, b) => a + b, 0) / v7.length) / n0(hn.mau)) * 1000) / 10 : null;
+    const tbDau = dauTb || 0; const nho = tbDau < MAU_KHONG_DU;
+    const oTang = [
+      tqO({ nhan: t('Tổng người dùng'), gt: so(hn.tong), mau: TQ(1), go: 'nguoidung', phu: `+${so(tong(series, 'dang_ky'))} ${t('đăng ký trong kỳ')}` }),
+      tqO({ nhan: t('Đăng ký mới'), gt: so(tong(series, 'dang_ky')), mau: TQ(5), go: 'solieu/tangtruong', so2: coTruoc ? soVoi(tong(tron, 'dang_ky'), tong(tronT, 'dang_ky'), t('so với kỳ trước, không tính hôm nay')) : '', duong: cot(series, 'dang_ky') }),
+      tqO({ nhan: t('Hoạt động trung bình mỗi ngày'), gt: dauTb != null ? so(dauTb) : '—', mau: TQ(2), go: 'solieu/tangtruong', so2: dauTbT != null ? soVoi(dauTb, dauTbT, t('so với kỳ trước, không tính hôm nay')) : '', duong: cotDau(series) }),
+      tqO({ nhan: t('Mức dùng hằng ngày'), gt: dinh != null ? `${so(dinh)}%` : '—', mau: TQ(4), vong: dinh, phu: `${t('DAU trung bình 7 ngày ÷ MAU')} · ${t('MAU')} ${so(hn.mau)} · ${t('WAU')} ${so(hn.wau)}` }),
+      cl ? tqO({ nhan: t('Quay lại trong 7 ngày đầu'), gt: pt(giu7.quay, giu7.n), mau: TQ(7), vong: n0(giu7.n) ? pct1(n0(giu7.quay), n0(giu7.n)) : null, go: 'solieu/giuchan', so2: n0(giu7t.n) ? diem(pct1(n0(giu7.quay), n0(giu7.n)), pct1(n0(giu7t.quay), n0(giu7t.n)), t('so với kỳ trước')) : '', phu: `${so(giu7.quay)} / ${so(giu7.n)} ${t('người đăng ký đã đủ 7 ngày')}` }) : '',
+      tqO({ nhan: t('Tin nhắn trong kỳ'), gt: so(tong(series, 'tin')), mau: TQ(7), so2: coTruoc ? soVoi(tong(tron, 'tin'), tong(tronT, 'tin'), t('so với kỳ trước, không tính hôm nay')) : '', phu: cl ? `${so(kp(k.cuoc_moi).cur)} ${t('cuộc trò chuyện mới')}` : '', duong: cot(series, 'tin') }),
+    ].join('');
+    // đường "kỳ trước" thẳng THỨ với kỳ này: lùi 7 / 28 / 84 ngày (bội số của 7)
+    const lui = ky === 7 ? 7 : ky === 30 ? 28 : 84;
+    const ssCung = series.map((r, i) => { const j = tat.length - series.length + i - lui; const r2 = tat[j]; return r2 && dauCo(r2) && i < series.length - 1 ? n0(r2.dau) : null; });
+    const coSs = ssCung.some((v) => v != null);
+    const xuHuong = tqThe(t('Người hoạt động mỗi ngày'), `${ky} ${t('ngày qua')} · ${coSs ? `${t('nét đứt: cùng thứ, lùi')} ${lui} ${t('ngày')} · ` : ''}${t('điểm cuối là hôm nay, chưa hết ngày')}`,
+      chuThich([{ ten: t('Kỳ này'), mau: TQ(2) }, ...(coSs ? [{ ten: `${t('Lùi')} ${lui} ${t('ngày')}`, mau: 'var(--tq-khac)', kieu: 'pt-key-dut' }] : [])])
+      + (tuNgay && series.some((r) => !dauCo(r)) ? `<p class="hint">${t('Số hoạt động có từ')} ${esc(ngayNgan(tuNgay))}.</p>` : '')
+      + cho((W) => vung([{ ten: t('Kỳ này'), mau: TQ(2), gt: cotDau(series), kieu: 'vung' }, ...(coSs ? [{ ten: `${t('Lùi')} ${lui} ${t('ngày')}`, mau: 'var(--tq-khac)', gt: ssCung, kieu: 'dut' }] : [])],
+        nhanNgay, { W, cao: 240, tomTat: `${t('Người hoạt động mỗi ngày')}, ${ky} ${t('ngày qua')}: ${t('trung bình')} ${dauTb != null ? so(dauTb) : '—'}` })),
+      { cot: 8, go: 'solieu/tangtruong' });
+    const ph = g.phieu || null;
+    const ttThe = ph ? tqThe(t('Tình trạng mọi tài khoản'), t('mọi tài khoản từ trước tới nay, các dòng không lồng nhau'), tqTrangThai([
+      { ten: t('Tài khoản'), n: n0(ph.dang_ky) }, { ten: t('Có ảnh đại diện'), n: n0(ph.co_anh) }, { ten: t('Đã từng đăng bài hoặc nhắn tin'), n: n0(ph.co_hoat_dong) },
+      { ten: t('Có trò chuyện hai chiều trong 90 ngày'), n: n0(ph.co_tro_chuyen_hai_chieu) }]), { cot: 4, go: 'solieu/giuchan' }) : '';
+    // tuần đang chạy chưa hết: bỏ khỏi hạch toán (nếu không, ai chưa quay lại tuần này đều thành "rời bỏ")
+    const homNayUtc = new Date(Date.UTC(nayUtc.getUTCFullYear(), nayUtc.getUTCMonth(), nayUtc.getUTCDate())).getTime();
+    const tuanDu = cl ? (cl.tuan || []).filter((w) => { const d0 = new Date(`${String(w.tuan).slice(0, 10)}T00:00:00Z`).getTime(); return !isNaN(d0) && d0 + 7 * 864e5 <= homNayUtc && w.du_lieu; }) : [];   // bỏ tuần chưa trọn và tuần trước khi có số
+    const tuanThe = tuanDu.length ? tqThe(t('Người hoạt động mỗi tuần'), t('mới, giữ lại, quay lại và rời đi, các tuần đã trọn'),
+      chuThich([{ ten: t('Mới'), mau: 'var(--pt-s1)' }, { ten: t('Giữ lại'), mau: 'var(--pt-s2)' }, { ten: t('Quay lại'), mau: 'var(--pt-s3)' }, { ten: t('Rời đi (dưới trục)'), mau: 'var(--pt-sneg)' }])
+      + cho((W) => hachToan(tuanDu, W)), { cot: 6, go: 'phantich/chienluoc' }) : '';
+    const giuThe = (g.giu_chan || []).length ? tqThe(t('Giữ chân theo tuần đăng ký'), t('% người dùng mở app đúng ngày 1, 7, 30 sau khi đăng ký'), bangGiuChan(g.giu_chan), { cot: 6, go: 'solieu/giuchan' }) : '';
+    const tomTang = `${t('Trung bình')} ${dauTb != null ? so(dauTb) : '—'} ${t('người hoạt động mỗi ngày')}${dauTbT ? `, ${Math.abs(pct1(dauTb - dauTbT, dauTbT)) < 0.5 ? t('không đổi') : `${dauTb > dauTbT ? t('tăng') : t('giảm')} ${so(Math.abs(pct1(dauTb - dauTbT, dauTbT)))}%`} ${t('so với kỳ trước')}` : ''} · ${so(tong(series, 'dang_ky'))} ${t('người đăng ký mới')} · ${t('gồm cả tài khoản nội bộ và tài khoản thử')}`;
+
+    // ================================================================ DOANH THU
+    let tienThe = '', tomTien = '';
+    if (dt) {
+      const ch = dt.chuoi || []; const tbo = dt.thue_bao || {};
+      const traThat = Math.max(0, n0(tbo.dang_tra) - n0(tbo.dung_thu));
+      const goi = toMau(gopKhac((dt.theo_goi || []).map((x) => ({ ten: tenGoiTq(x.k, x.thoi_han), n: n0(x.n) })), 5));
+      const truocGop = n0((dt.truoc || {}).gop);
+      tienThe = tqThe('HIMO Plus', `${esc(dt.ngay)} ${t('ngày qua')} · ${t('tính bằng USD, ước tính theo RevenueCat')} · ${t('kỳ này gồm cả hôm nay chưa hết ngày')}`,
+        `<div class="tq-hang">${[[t('Doanh thu gộp'), dtTien(dt.tong.gop), truocGop ? `${t('kỳ trước')} ${esc(dtTien(truocGop))}` : ''], [t('Doanh thu ròng'), dtTien(dt.tong.rong), ''],
+          [t('Thực nhận ước tính'), dtTien(dt.tong.thuc_nhan), t('sau thuế và phí cửa hàng')], [t('MRR ước tính'), dtTien((dt.mrr || {}).usd), n0(tbo.dung_thu) ? t('gồm cả người đang dùng thử') : ''],
+          [t('Đang trả tiền'), so(traThat), `${n0(tbo.dung_thu) ? `+${so(tbo.dung_thu)} ${t('dùng thử')} · ` : ''}${n0(dt.nguoi_dung) ? `${pt(traThat, dt.nguoi_dung)} ${t('người dùng')}` : ''}`]]
+          .map(([a, b, c0]) => `<div><span>${esc(a)}</span><b>${esc(b)}</b>${c0 ? `<small>${c0}</small>` : ''}</div>`).join('')}</div>`
+        + `<div class="tq-luoi2"><div><h4 class="tq-h4">${t('Doanh thu gộp mỗi ngày')}</h4>${cho((W) => vung([{ ten: t('Doanh thu gộp'), mau: TQ(1), gt: ch.map((c) => n0(c.gop)), kieu: 'vung' }], ch.map((c) => ngayNgan(c.ngay)),
+            { W, cao: 190, tien: (v, truc) => dtTien(truc ? Math.round(v) : v), tomTat: `${t('Doanh thu gộp mỗi ngày')}: ${dtTien(dt.tong.gop)}` }))}</div>
+          <div><h4 class="tq-h4">${t('Số giao dịch mỗi ngày')}</h4>${chuThich([{ ten: t('Mua mới'), mau: TQ(7) }, { ten: t('Gia hạn'), mau: TQ(5) }])}${cho((W) => cotChong(ch.map((c) => ({ nhan: ngayNgan(c.ngay), phan: [c.mua_moi, c.gia_han] })), [{ ten: t('Mua mới'), mau: TQ(7) }, { ten: t('Gia hạn'), mau: TQ(5) }], { W, cao: 190, tomTat: t('Số giao dịch mỗi ngày') }))}</div></div>`
+        + `<div class="tq-luoi2 tq-mt"><div><h4 class="tq-h4">${t('Giao dịch theo gói')}</h4>${tronKhuyet(goi.length ? goi : [{ ten: t('Chưa có'), n: 0, mau: TQ(1) }], { phuGiua: t('giao dịch') })}
+          ${n0(tbo.dang_tra) && n0(tbo.tu_gia_han) + n0(tbo.da_huy) === n0(tbo.dang_tra) ? `<h4 class="tq-h4 tq-mt">${t('Thuê bao còn hạn theo gia hạn')}</h4>${tronKhuyet([{ ten: t('Tự gia hạn'), n: n0(tbo.tu_gia_han), mau: TQ(1) }, { ten: t('Đã tắt gia hạn'), n: n0(tbo.da_huy), mau: TQ(5) }], { phuGiua: t('thuê bao') })}` : ''}</div>
+          <div><h4 class="tq-h4">${t('Thuê bao lúc này')}</h4><div class="tq-kvs">${[[t('Còn hạn'), tbo.dang_tra], [t('trong đó dùng thử'), tbo.dung_thu], [t('Tự gia hạn'), tbo.tu_gia_han], [t('Đã tắt gia hạn'), tbo.da_huy], [t('Lỗi thanh toán'), tbo.loi_thanh_toan], [t('Hết hạn trong 7 ngày tới'), tbo.sap_het_7d], [t('Đã hết hạn trong 30 ngày qua'), tbo.het_han_30d]]
+            .map(([a, b]) => `<div><span>${esc(a)}</span><b>${so(n0(b))}</b></div>`).join('')}</div></div></div>`,
+        { cot: 12, go: 'solieu/doanhthu' });
+      tomTien = `${t('Doanh thu gộp')} ${esc(dtTien(dt.tong.gop))}${truocGop ? ` (${t('kỳ trước')} ${esc(dtTien(truocGop))})` : ''} · ${so(traThat)} ${t('người đang trả tiền')} · ${t('MRR')} ${esc(dtTien((dt.mrr || {}).usd))}`;
+    } else if (d.dthu === null) thieu.push(t('Doanh thu'));
+
+    // ================================================================ AN TOÀN & NỘI DUNG
+    const lyDo = toMau(gopKhac(Object.entries(sf.theo_ly_do || {}).map(([k2, n]) => ({ ten: d.tenLyDo ? d.tenLyDo(k2) : k2, k: k2 === 'other' ? KHAC : k2, n })), 5));
+    const xl = sf.xu_ly || {};
+    const xuLyThe = tqThe(t('Xử lý báo cáo'), t('7 ngày qua'), `<div class="tq-kvs">${[[t('Đã đóng'), so(n0(xl.dong_7d))],
+      [t('Thời gian xử lý trung bình'), xl.gio_tb_7d != null ? `${so(Math.round(n0(xl.gio_tb_7d) * 10) / 10)}${gioDv()}` : '—'],
+      [t('Lâu nhất'), xl.gio_lau_nhat_7d != null ? `${so(Math.round(n0(xl.gio_lau_nhat_7d) * 10) / 10)}${gioDv()}` : '—'],
+      [t('Xử lý trong 24 giờ'), xl.trong_24h_7d != null && n0(xl.dong_7d) ? `${so(n0(xl.trong_24h_7d))} (${pt(xl.trong_24h_7d, xl.dong_7d)})` : '—'],
+      [t('Ảnh bị từ chối'), so(n0(choAnh.tu_choi_7d))],
+      [t('Báo cáo trên 1.000 người dùng gần đây'), sf.bao_cao_tren_1000_mau_7d != null ? so(sf.bao_cao_tren_1000_mau_7d) : '—'],
+      [t('Đang bị khoá'), `${so(n0(s.suspended))} ${t('tạm')} · ${so(n0(s.banned))} ${t('vĩnh viễn')}`]]
+      .map(([a, b]) => `<div><span>${esc(a)}</span><b>${b}</b></div>`).join('')}</div><p class="hint">${t('"Người dùng gần đây" là người có mở app trong 30 ngày.')}</p>`, { cot: 6, go: 'antoan/baocao' });
+    const lyDoThe = tqThe(t('Lý do báo cáo'), t('30 ngày qua'), lyDo.length ? tronKhuyet(lyDo, { phuGiua: t('báo cáo') }) : `<div class="empty">${t('Chưa có báo cáo')}</div>`, { cot: 6, go: 'antoan/baocao' });
+    const baiThe = tqThe(t('Bài đăng mỗi ngày'), `${ky} ${t('ngày qua')}`, cho((W) => cotDoc(cot(series, 'bai'), nhanNgay, { W, cao: 170, mau: TQ(1), ten: t('Bài đăng') })), { cot: 6, go: 'noidung/bai' });
+    const bcThe = tqThe(t('Báo cáo mới mỗi ngày'), `${ky} ${t('ngày qua')}`, cho((W) => cotDoc(cot(series, 'bao_cao'), nhanNgay, { W, cao: 170, mau: TQ(8), ten: t('Báo cáo') })), { cot: 6, go: 'antoan/baocao' });
+    const cc = cl ? cl.co_cau_tin || {} : null;
+    const loaiTin = cc ? [{ ten: t('Chữ (gồm tin thoại)'), n: n0(cc.chu), mau: TQ(1) }, { ten: t('Ảnh'), n: n0(cc.anh), mau: TQ(2) }, ...(cc.video != null ? [{ ten: t('Video'), n: n0(cc.video), mau: TQ(7) }] : []), { ten: t('Vị trí'), n: n0(cc.vi_tri), mau: TQ(5) }].sort((a, b) => b.n - a.n) : [];
+    const coThuHoi = !!cc && n0(cc.thu_hoi) > 0 && loaiTin.reduce((a, x) => a + x.n, 0) + n0(cc.thu_hoi) === n0(cc.rieng) + n0(cc.nhom);
+    const coCau = cc ? tqThe(t('Tỉ trọng tin nhắn theo loại'), `${ky} ${t('ngày qua')}${coThuHoi ? '' : ` · ${t('tin đã thu hồi không nằm trong loại nào')}`}`,
+      `<div class="tq-luoi2"><div>${tronKhuyet(coThuHoi ? [...loaiTin, { ten: t('Đã thu hồi'), k: KHAC, n: n0(cc.thu_hoi), mau: 'var(--tq-khac)' }] : loaiTin, { phuGiua: t('tin nhắn') })}</div>
+        <div>${tronKhuyet([{ ten: t('Chat riêng'), n: n0(cc.rieng), mau: TQ(3) }, { ten: t('Trong nhóm'), n: n0(cc.nhom), mau: TQ(4) }], { phuGiua: t('tin nhắn') })}</div></div>`
+      + `<div class="tq-mini tq-mt">${[[t('trả lời'), cc.tra_loi], ...(coThuHoi ? [] : [[t('thu hồi'), cc.thu_hoi]])].map(([a, b]) => `<span>${esc(a)} <b>${so(n0(b))}</b></span>`).join('')}</div>`, { cot: 12 }) : '';
+    const tomAn = `${so(n0(xl.dong_7d))} ${t('báo cáo đã đóng trong 7 ngày')}${xl.gio_tb_7d != null ? `, ${t('trung bình')} ${so(Math.round(n0(xl.gio_tb_7d) * 10) / 10)}${gioDv()}` : ''}${lyDo.length && lyDo[0].k !== KHAC ? ` · ${t('lý do nhiều nhất')}: ${esc(lyDo[0].ten)}` : ''}`;
+
+    // ================================================================ NGƯỜI DÙNG
+    const nuoc = (g.theo_nuoc || []).slice(0, 8).map((x) => ({ ten: x.ten === '?' || !x.ten ? t('Chưa rõ') : (C.tenNuoc ? C.tenNuoc(x.ten) : x.ten), n: n0(x.n), phu: `${t('hoạt động 30 ngày')}: ${so(n0(x.hd_30d))} (${pt(x.hd_30d, x.n)})` }));
+    const nuocDu = (g.theo_nuoc || []).map((x) => ({ ten: x.ten === '?' || !x.ten ? t('Chưa rõ') : (C.tenNuoc ? C.tenNuoc(x.ten) : x.ten), n: n0(x.n) }));
+    const conLai = Math.max(0, n0(hn.tong) - nuocDu.reduce((a, x) => a + x.n, 0));          // theo_nuoc chỉ trả 20 nước nhiều nhất → phần còn lại vào "Khác"
+    const nuocThe = nuoc.length ? tqThe(t('Người dùng theo quốc gia'), t('5 nước nhiều nhất, còn lại gộp "Khác"'), tronKhuyet(toMau(gopKhac(conLai ? [...nuocDu, { ten: t('Khác'), k: KHAC, n: conLai }] : nuocDu, 5)), { phuGiua: t('người dùng') }), { cot: 6, go: 'solieu/khuvuc' }) : '';
+    const nn = Object.entries(g.theo_ngon_ngu || {}).map(([k2, n]) => ({ ten: tenNgonNgu(k2), n: n0(n) })).sort((a, b) => b.n - a.n);
+    const nnThe = nn.length ? tqThe(t('Ngôn ngữ nhận thông báo'), t('ngôn ngữ của thông báo đẩy mỗi người đang dùng'), tronKhuyet(toMau(gopKhac(nn, 5)), { phuGiua: t('người dùng') }), { cot: 6, go: 'solieu/khuvuc' }) : '';
+    const tinhNang = [];
+    const stk = d.st && d.st.kpi ? d.st.kpi : null;
+    const ssN = (a2, b2) => soVoi(a2, b2, t('so với kỳ trước'));
+    if (stk) { const a2 = stk.nay || {}, b2 = stk.truoc || {}; tinhNang.push([t('Story'), [[t('Lượt đăng'), a2.lan_dang, b2.lan_dang], [t('Người đăng'), a2.nguoi_dang, b2.nguoi_dang], [t('Lượt xem'), a2.luot_xem, b2.luot_xem], [t('Cảm xúc'), a2.cam_xuc, b2.cam_xuc]], 'phantich/stories']); } else if (may.has('st')) thieu.push(t('Story'));
+    const skd = d.sk && d.sk.su_kien ? d.sk.su_kien : null;
+    if (skd) tinhNang.push([t('Sự kiện'), [[t('Tạo trong kỳ'), skd.tao], [t('Sắp tới hoặc đang diễn ra'), skd.sap_toi], [t('Lượt nhận "sẽ đi"'), skd.dang_ky_di], [t('Người tổ chức'), skd.nguoi_to_chuc]], 'phantich/sukien']); else if (may.has('sk')) thieu.push(t('Sự kiện'));
+    const bb = d.bb && d.bb.cap_ban_be != null ? d.bb : null;
+    if (bb) tinhNang.push([t('Bạn bè'), [[t('Cặp bạn bè'), bb.cap_ban_be], [t('Bạn thân'), bb.ban_than], [t('Lời mời đang chờ'), bb.loi_moi_dang_cho], [t('Kết bạn trong kỳ'), (bb.ky || {}).chap_nhan]], 'hethong/vanhanh']);
+    const tnThe = tinhNang.length ? `<div class="tq-tn tq-c12">${tinhNang.map(([ten, ds, go], i) => `<section class="card tq-tnc" style="--c:${TQ([5, 4, 1][i] || 1)}"><div class="tq-th"><h3><i aria-hidden="true"></i>${esc(ten)}</h3><button class="tq-xem" data-go="${go}">${t('Xem chi tiết')} →</button></div>
+      <div class="tq-kvs">${ds.map(([a, b, c0]) => `<div><span>${esc(a)}</span><b>${so(n0(b))}${c0 != null ? ` ${ssN(n0(b), n0(c0))}` : ''}</b></div>`).join('')}</div></section>`).join('')}</div>` : '';
+    if (d.cd === null) thieu.push(t('Chân dung người dùng'));
+    const tomNguoi = nuoc.length ? `${t('Nhiều nhất')}: ${nuoc.slice(0, 3).map((x2) => `${esc(x2.ten)} ${pt(x2.n, hn.tong)}`).join(' · ')}` : '';
+
+    // ================================================================ HỆ THỐNG
+    const sc = vh ? vh.suc_chua || {} : {};
+    const sys = d.sys || {};
+    const kho = sc.kho ? Object.values(sc.kho).reduce((a, x2) => a + n0(x2 && x2.bytes), 0) : null;          // null = máy chủ không đọc được kho → không đoán
+    const mb = (v) => `${so(Math.round(n0(v) / 1048576))} MB`;
+    const heThongThe = tqThe(t('Dung lượng và hạn mức'), t('xanh dưới 80% · vàng từ 80% · đỏ từ 95%'),
+      `<div class="tq-luoi3">${sc.db_gioi_han ? thuoc(t('Cơ sở dữ liệu'), sc.db_bytes, sc.db_gioi_han, `${mb(sc.db_bytes)} / ${mb(sc.db_gioi_han)}`) : ''}
+        ${sc.kho_gioi_han ? thuoc(t('Kho ảnh và video'), kho, sc.kho_gioi_han, `${mb(kho)} / ${mb(sc.kho_gioi_han)}`) : ''}
+        ${sys.dich ? thuoc(t('Dịch tháng này (DeepL miễn phí)'), sys.dich.ky_tu_thang, sys.dich.han_muc_deepl_free, `${so(n0(sys.dich.ky_tu_thang))} / ${so(n0(sys.dich.han_muc_deepl_free))} ${t('ký tự')}`) : ''}</div>
+      ${sys.thong_bao ? `<div class="tq-mini tq-mt">${[[t('máy nhận thông báo'), sys.thong_bao.co_token], [t('thông báo 24 giờ qua'), sys.thong_bao.gui_24h], [t('chưa đọc'), sys.thong_bao.chua_doc]].map(([a, b]) => `<span>${esc(a)} <b>${so(n0(b))}</b></span>`).join('')}</div>` : ''}
+      ${thieu.length ? `<div class="tq-thieu"><b>${t('Chưa hiện vì máy chủ chưa có bản vá')}:</b> ${thieu.map(esc).join(' · ')}</div>` : ''}`,
+      { cot: 12, go: 'hethong/vanhanh' });
+    const phanTram = (a, b) => (a != null && n0(b) ? Math.round((n0(a) / n0(b)) * 100) : null);
+    const ptHe = (a, b) => { if (a == null || !n0(b)) return '—'; const x = (n0(a) / n0(b)) * 100; return x > 0 && x < 1 ? '<1' : phanTram(a, b); };   // giống chữ trong vòng: phần rất nhỏ ghi <1 %
+    const tomHe = [sc.db_gioi_han ? `${t('Cơ sở dữ liệu')} ${ptHe(sc.db_bytes, sc.db_gioi_han)}%` : '', kho != null && sc.kho_gioi_han ? `${t('kho ảnh')} ${ptHe(kho, sc.kho_gioi_han)}%` : '', sys.dich ? `${t('dịch')} ${ptHe(sys.dich.ky_tu_thang, sys.dich.han_muc_deepl_free)}%` : ''].filter(Boolean).join(' · ');
+
+    // ================================================================ ĐIỀU ĐÁNG CHÚ Ý
+    const nx = tqNhanXet({ tat, tron, tronT, coTruoc, cl, vh, dt, sc, kho, sys, tuNgay, dinh, nho, tbDau });
+    const soXau = nx.filter((c) => c.m === 'xau').length, soTot = nx.filter((c) => c.m === 'tot').length;
+    const nxThe = `<section class="card tq-the tq-c12">${nx.length ? `<ul class="pt-insights tq-ins">${nx.map((c) => `<li class="pt-i-${c.m}"><span class="pt-ic" aria-hidden="true">${c.m === 'xau' ? '!' : c.m === 'tot' ? '✓' : 'i'}</span><span><span class="sr">${c.m === 'xau' ? t('Cần chú ý:') : c.m === 'tot' ? t('Tốt:') : t('Thông tin:')} </span>${c.text}</span>${c.go ? `<button class="tq-xem" data-go="${c.go}">${t('Xem')} →</button>` : ''}</li>`).join('')}</ul>`
+      : `<div class="empty">${t('Chưa thấy điều gì khác thường trong kỳ này.')}</div>`}<p class="hint tq-mt">${t('Máy tự rút ra từ các con số bên trên: so với cùng thứ các tuần trước, xu hướng, giữ chân, doanh thu, hạn mức. Chỉ nêu khi khác biệt lớn hơn mức dao động ngẫu nhiên. Luôn kiểm lại trước khi quyết định.')}</p></section>`;
+    const tomNx = nx.length ? `${so(soXau)} ${t('điều cần chú ý')} · ${so(soTot)} ${t('điều tốt')}` : '';
+
+    // ================================================================ CẦN LÀM NGAY
+    const cb = (d.canhBao || []).filter((c) => c.m !== 'ok');
+    const kh = sla.khac || {};
+    const moTinh = n0(sla.duoi_6h) + n0(sla.tu_6_18h) + n0(sla.tu_18_24h) + n0(sla.qua_24h);
+    const coSla = sla.duoi_6h != null || sla.qua_24h != null;
+    const hang = [[t('Báo cáo đang chờ bạn'), coSla ? moTinh : s.reports_open, 'antoan/baocao', n0(sla.qua_24h) ? 'danger' : n0(sla.tu_18_24h) ? 'warn' : '', n0(sla.ve_minh) ? `+${so(sla.ve_minh)} ${t('về bạn')}` : ''],
+      [t('Ảnh chờ duyệt'), tongAnh, 'antoan/anh', '', choAnh.gio_lau_nhat ? `${t('lâu nhất')} ${so(Math.round(choAnh.gio_lau_nhat))}${gioDv()}` : ''],
+      kh.selfie != null ? [t('Selfie chờ duyệt'), kh.selfie, 'antoan/xacminh', n0(kh.selfie_qua_24h) ? 'danger' : '', ''] : null,
+      kh.khieu_nai_anh != null ? [t('Khiếu nại ảnh'), kh.khieu_nai_anh, 'antoan/anh', n0(kh.khieu_nai_anh_qua_24h) ? 'danger' : '', ''] : null,
+      kh.su_kien != null ? [t('Sự kiện chờ duyệt'), kh.su_kien, 'noidung/sukien', n0(kh.su_kien_qua_24h) ? 'danger' : '', ''] : null,
+      [t('Đang bị khoá'), n0(s.suspended) + n0(s.banned), 'antoan/phat', '', '']].filter(Boolean);
+    const viecThe = `<section class="card tq-the tq-c12 tq-viec"><div class="tq-viec-l">
+        ${cb.length ? cb.map((c) => `<button class="tq-cb tq-cb-${c.m}" data-go="${c.go}"><span class="tq-cbi" aria-hidden="true">!</span><span><b>${esc(c.t)}</b>${c.p ? `<small>${esc(c.p)}</small>` : ''}</span><span class="tq-cbx">${t('Xử lý')} →</span></button>`).join('')
+          : `<div class="tq-cb tq-cb-ok"><span class="tq-cbi" aria-hidden="true">✓</span><span><b>${t('Không có việc gấp')}</b><small>${t('Mọi báo cáo đã đóng, hàng chờ ảnh trống.')}</small></span></div>`}
+      </div><div class="tq-viec-r"><div class="tq-dem">${hang.map(([a, b, go, m, phu]) => `<button class="tq-demo${m ? ` tq-demo-${m}` : ''}" data-go="${go}"><b>${so(n0(b))}</b><span>${esc(a)}</span>${phu ? `<small>${esc(phu)}</small>` : ''}</button>`).join('')}</div>
+        ${coSla ? `<h4 class="tq-h4 tq-mt">${t('Báo cáo đang mở theo thời gian chờ')} · ${t('hạn 24 giờ')}</h4>
+        ${thanhHan([{ ten: t('dưới 6 giờ'), n: sla.duoi_6h, m: 'tq-ok1' }, { ten: t('6 đến 18 giờ'), n: sla.tu_6_18h, m: 'tq-ok2' }, { ten: t('18 đến 24 giờ'), n: sla.tu_18_24h, m: 'warn' }, { ten: t('quá 24 giờ'), n: sla.qua_24h, m: 'danger' }])}` : ''}</div></section>`;
+    const tomViec = cb.length ? `${t('Việc cần xem')}: ${so(cb.length)}${sla.gio_lau_nhat != null && moTinh ? ` · ${t('báo cáo lâu nhất đã chờ')} ${so(Math.round(sla.gio_lau_nhat))}${gioDv()}` : ''}` : t('Không có việc gấp. Mọi báo cáo và ảnh đều đã xử lý.');
+
+    // ================================================================ ghép
+    const NHOM_TQ = [['tq-homnay', t('Hôm nay')], ['tq-tang', t('Tăng trưởng')], ...(dt ? [['tq-tien', t('Doanh thu')]] : []), ['tq-an', t('An toàn & nội dung')], ['tq-nguoi', t('Người dùng')], ['tq-he', t('Hệ thống')], ['tq-nx', t('Điều đáng chú ý')], ['tq-viec', t('Cần làm ngay')]];
+    const gapNhat = cb[0];
+    const nutGap = gapNhat ? `<button class="chip tq-gap" data-cuon="tq-viec"><b>${so(cb.length)}</b> ${esc(gapNhat.t)}${cb.length > 1 ? ` ${t('và')} ${so(cb.length - 1)} ${t('việc khác')}` : ''}</button>`
+      : `<button class="chip tq-gap-ok" data-cuon="tq-viec">✓ ${t('Không có việc gấp')}</button>`;
+    const kyNut = `<div class="tq-ky"><div class="chips" id="tqKy" role="group" aria-label="${esc(t('Khoảng thời gian'))}">${[7, 30, 90].map((x2) => `<button class="chip" data-d="${x2}" aria-pressed="${ky === x2}">${x2} ${t('ngày')}</button>`).join('')}</div>
+      <span class="hint">${t('áp cho Tăng trưởng, Doanh thu, Bài đăng và Báo cáo')}</span></div>`;
+    const luc = new Date().toLocaleTimeString(C.locale(), { hour: '2-digit', minute: '2-digit' });
+    main.innerHTML = `<div class="stack tq" id="tqGoc" style="padding-top:14px">
+      <div class="pt-head"><div><h1>${t('Tổng quan')}</h1><p class="sub">${t('Số liệu chính của HIMO, chia theo nhóm. Bấm "Xem chi tiết" để mở từng mục.')} · ${t('Cập nhật lúc')} ${esc(luc)}</p></div>${kyNut}</div>
+      <nav class="tq-nav" aria-label="${esc(t('Đi nhanh tới nhóm'))}">${nutGap}${NHOM_TQ.map(([id, ten]) => `<button class="chip" data-cuon="${id}">${esc(ten)}</button>`).join('')}</nav>
+      <div class="tq-luoi">
+        ${nhom('tq-homnay', t('Hôm nay'), tomHom, `<div class="tq-kpis tq-c12">${oHom}</div>${gioThe}${nhietThe}`)}
+        ${nhom('tq-tang', `${t('Tăng trưởng')} · ${ky} ${t('ngày qua')}`, tomTang, `<div class="tq-kpis tq-c12">${oTang}</div>${xuHuong}${ttThe}${tuanThe}${giuThe}`)}
+        ${dt ? nhom('tq-tien', `${t('Doanh thu')} · ${esc(dt.ngay)} ${t('ngày qua')}`, tomTien, tienThe) : ''}
+        ${nhom('tq-an', t('An toàn & nội dung'), tomAn, `${xuLyThe}${lyDoThe}${baiThe}${bcThe}${coCau}`)}
+        ${nhom('tq-nguoi', t('Người dùng'), tomNguoi, `${nuocThe}${nnThe}${tnThe}${d.laAi ? `<div class="tq-c12">${d.laAi}</div>` : ''}`)}
+        ${nhom('tq-he', t('Hệ thống'), tomHe, heThongThe)}
+        ${nhom('tq-nx', t('Điều đáng chú ý'), tomNx, nxThe)}
+        ${nhom('tq-viec', t('Cần làm ngay'), tomViec, viecThe)}
+      </div>
+      ${d.cuoiHtml || ''}</div>`;
+    main.querySelectorAll('[data-cuon]').forEach((b) => b.addEventListener('click', () => {
+      const el = main.querySelector(`#${b.dataset.cuon}`); if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }));
+    veBieuDo(main);
+  }
+
   /** Các hàm thuần của khối theo kỳ — để bộ kiểm tĩnh gọi thẳng (đưa ngữ cảnh t / esc / so vào trước). */
   const dtkThu = (ctx) => { C = ctx; return { csvO, dtkCsv, dtkTenTep, dtkMucTieuCot, dtkNhan, dtkKhoi, dtkAnToan, cotKy, dtkSoMucTieu, dtkHuyHieu }; };
 
-  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, goiY, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, dtkThu, chuGiai: ganChuGiai };
+  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, goiY, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, tongQuan, dtkThu, chuGiai: ganChuGiai };
 })();

@@ -583,7 +583,7 @@
     { k: 'solieu',    ten: 'Số liệu',
       subs: [['tangtruong', 'Tăng trưởng'], ['doanhthu', 'Doanh thu'], ['giuchan', 'Giữ chân'], ['khuvuc', 'Khu vực & ngôn ngữ'], ['nhucau', 'Nhu cầu trả phí']] },
     { k: 'hethong',   ten: 'Hệ thống', muc: 'Kỹ thuật',
-      subs: [['vanhanh', 'Vận hành'], ['nhatky', 'Nhật ký'], ['nuoc', 'Nước chỉ trực tuyến']] },
+      subs: [['vanhanh', 'Vận hành'], ['nhatky', 'Nhật ký'], ['nuoc', 'Nước chỉ trực tuyến'], ['chongvuot', 'Chứng thực & giới hạn']] },
   ];
   // Biểu tượng của thanh bên: SVG vẽ tay, nằm ngay trong trang (CSP không cho tải từ ngoài).
   const BT = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
@@ -610,6 +610,7 @@
     ng: { q: '', status: 'all', country: 'all', hoatDong: 'all', sort: 'recent', trang: 0 },
     nk: { q: '', action: 'all', trang: 0 },
     sk: { loc: 'can_xu_ly', q: '', trang: 0 },     // 151 — sự kiện
+    tqKy: 30,                                       // 19/11 — dashboard Tổng quan: 7 / 30 / 90 ngày
     bcn: { trang: 0 },                              // 151 — tin bị gỡ khỏi nhóm
     xm: { trang: 0 },                               // 149 — hàng đợi xác minh selfie
     solieu: { ngay: 30 },
@@ -777,6 +778,7 @@
       if (d.loiNgay || d.tuNhap != null || d.denNhap != null) return false;                 // đang nhập dở khoảng tuỳ chọn
       if (a0 && a0.classList && a0.closest && a0.closest('.dtk') && (a0.classList.contains('pt-bar') || a0.classList.contains('dtk-mt'))) return false;   // tiêu điểm bàn phím đang ở một cột biểu đồ / dòng mục tiêu
     }
+    if (state.nhom === 'tongquan') { const a1 = document.activeElement; if (a1 && a1.closest && a1.closest('#tqGoc') && a1.matches('.tq-svg, .pt-svg, .pt-bar, .pt-hc, .pt-hrow')) return false; }
     // Bảng Chiến lược / Chuyên sâu dùng để đọc và suy nghĩ: không tự vẽ lại giữa chừng. Vận hành thì có.
     if (state.nhom === 'phantich' && state.sub !== 'vanhanh' && state.sub !== 'chandung') return false;
     // Quét Story có video đang phát; danh sách nước có ô nhập đang gõ dở: đừng vẽ lại giữa chừng.
@@ -820,6 +822,8 @@
 
   // Nút ↻ trên đầu trang: tải lại số liệu ngay (các bảng Chiến lược / Chuyên sâu không tự làm mới — bấm nút này).
   $('#lamMoi').addEventListener('click', () => { autoRefresh(true); });
+  // 19/11: chỉ nút ↻ mới bỏ bộ nhớ 5 phút của Tổng quan (quay lại thẻ trình duyệt thì không — tránh hỏi lại 9 hàm nặng)
+  $('#lamMoi').addEventListener('pointerdown', () => tqXoa()); $('#lamMoi').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') tqXoa(); });
 
   function startAuto() {
     clearInterval(autoTimer); clearInterval(freshTimer);
@@ -839,10 +843,21 @@
   // lớn lên hay đứng yên. Bấm vào ô nào là nhảy thẳng vào nhóm đó.
   async function renderTongQuan(main) {
     if (!main.querySelector('#tqGoc')) main.innerHTML = dangTai;      // tự làm mới mỗi phút: giữ màn hình tới khi có số mới
-    const [s, sf, g, cd, dthu] = await Promise.all([
-      rpc('admin_stats', { p_days: 14 }), rpc('admin_safety'), rpc('admin_growth', { p_days: 14 }),
-      rpc('admin_pt_chan_dung', { p_loc: {} }).catch(() => null),     // 167: máy chủ chưa có → không hiện thẻ "Người dùng là ai"
-      rpc('admin_doanh_thu', { p_loc: { ngay: 30, tz: muiGio() } }).catch(() => null),   // 168: chưa có / không có quyền → không hiện khối Doanh thu
+    // 19/11 — dashboard: việc chờ (báo cáo, ảnh) lấy mới mỗi lượt; các khối tổng hợp nặng giữ 5 phút (tqCham) để lượt tự làm mới mỗi phút không đè máy chủ.
+    // Khối nào máy chủ chưa có (production còn ở nền 29/10) → null → không vẽ.
+    const ky = [7, 30, 90].includes(state.tqKy) ? state.tqKy : 30;
+    const cham = (ten, fn) => tqCham(`${ten}|${ky}|${new Date().toISOString().slice(0, 10)}`, ten, fn);   // khoá có NGÀY UTC: qua nửa đêm UTC là lấy lại
+    const [s, sf, g, cd, dthu, vh, cl, sy, st, sk, bb] = await Promise.all([
+      rpc('admin_stats', { p_days: 14 }), rpc('admin_safety'), cham('g', () => rpc('admin_growth', { p_days: Math.min(180, Math.max(ky * 2, 42)) })),   // kỳ này + kỳ trước + ≥ 6 tuần làm mốc "cùng thứ"
+      cham('cd', () => rpc('admin_pt_chan_dung', { p_loc: {} }).catch(() => null)),     // 167: máy chủ chưa có → không hiện thẻ "Người dùng là ai"
+      ky === 30 ? rpc('admin_doanh_thu', { p_loc: { ngay: 30, tz: muiGio() } }).catch(() => null)   // 168: chưa có / không có quyền → không hiện khối Doanh thu
+        : rpc('admin_doanh_thu', { p_loc: { ngay: ky, tz: muiGio() } }).catch(() => null),
+      cham('vh', () => rpc('admin_pt_van_hanh', { p_tz: muiGio() })),
+      cham('cl', () => rpc('admin_pt_chien_luoc', { p_days: ky })),
+      cham('sy', () => rpc('admin_system')),
+      cham('st', () => rpc('admin_pt_stories', { p_days: ky })),
+      cham('sk', () => rpc('admin_pt_su_kien', { p_days: ky })),
+      cham('bb', () => rpc('admin_ban_be', { p_user: null, p_days: ky })),
     ]);
     const sla = sf.sla || {}; const hn = g.hom_nay || {};
     const canhBao = [];
@@ -862,39 +877,34 @@
     if (tongAnh > 0) canhBao.push({ m: 'warn', t: `${tongAnh} ${dem(tongAnh, 'ảnh đang chờ duyệt')}`, p: choAnh.gio_lau_nhat ? `${t('Cái lâu nhất đã chờ')} ${Math.round(choAnh.gio_lau_nhat)} ${t('giờ.')}` : '', go: 'antoan/anh' });
     if (!canhBao.length) canhBao.push({ m: 'ok', t: `${t('Không có việc gấp')}`, p: `${t('Mọi báo cáo đã đóng, hàng chờ ảnh trống.')}`, go: 'antoan/baocao' });
 
-    const viec = [
-      { v: so(s.reports_open), l: dem(s.reports_open, 'báo cáo đang chờ'), alert: sla.qua_24h > 0, go: 'antoan/baocao' },
-      { v: so(tongAnh), l: dem(tongAnh, 'ảnh chờ duyệt'), go: 'antoan/anh' },
-      { v: so((s.suspended || 0) + (s.banned || 0)), l: `${t('đang bị khoá (')}${s.suspended} ${t('tạm ·')} ${s.banned} ${t('vĩnh viễn)')}`, go: 'antoan/phat' },
-    ];
-    const o = [
-      { v: so(hn.tong), l: dem(hn.tong, 'người dùng'), go: 'nguoidung' },
-      { v: so(hn.dau), l: dem(hn.dau, 'hoạt động hôm nay'), go: 'solieu/tangtruong' },
-      { v: so(hn.moi_7d), l: dem(hn.moi_7d, 'đăng ký 7 ngày qua'), go: 'solieu/tangtruong' },
-      { v: so(s.messages_24h), l: dem(s.messages_24h, 'tin nhắn 24 giờ qua') },
-      { v: so(s.posts_total), l: dem(s.posts_total, 'bài đã duyệt'), go: 'noidung/bai' },
-    ];
-    const oVe = (ds) => `<div class="tiles">${ds.map((x) => `<div class="tile${x.alert ? ' alert' : ''}" ${x.go ? `style="cursor:pointer" data-go="${x.go}"` : ''}><div class="v">${x.v}</div><div class="l">${esc(x.l)}</div></div>`).join('')}</div>`;
     const PT = window.HIMO_PT;
+    if (!PT || !PT.tongQuan) { main.innerHTML = khung(t('Tổng quan'), '', `<div class="empty">${t('Chưa tải được bảng Tổng quan. Tải lại trang.')}</div>`); return; }
     const ctxPt = { t, esc, so, nav, fmtNgay, locale, lang: () => lang, tenNuoc };
     const laAi = PT && PT.chanDungTomTat ? PT.chanDungTomTat(cd, ctxPt) : '';
-    const khoiTien = PT && PT.doanhThuTomTat ? PT.doanhThuTomTat(dthu, ctxPt) : '';
-    const series = s.series || [];
-    main.innerHTML = `<div class="stack" id="tqGoc" style="padding-top:14px">
-      <div><h1>${t('Tổng quan')}</h1><p class="sub">${t('Mọi thứ cần biết trong một màn hình. Bấm vào ô để đi thẳng tới nhóm việc.')}</p></div>
-      ${canhBao.map((c) => `<div class="alertbar ${c.m}" data-go="${c.go}" style="cursor:pointer"><div><b>${esc(c.t)}</b>${c.p ? '<br>' + esc(c.p) : ''}</div></div>`).join('')}
-      <div class="sec lon"><h2>${t('Việc đang chờ')}</h2><span class="hint">${t('báo cáo và ảnh có hạn 24 giờ')}</span></div>
-      ${oVe(viec)}
-      <div class="sec lon"><h2>${t('Người dùng và hoạt động')}</h2><span class="hint">${t('con số lúc này')}</span></div>
-      ${oVe(o)}
-      ${khoiTien}
-      <div class="sec lon"><h2>${t('14 ngày qua')}</h2><span class="hint">${t('theo ngày')}</span></div>
-      <div class="charts">${bieuDo(series, 'signups', `${t('Đăng ký mới')}`)}${bieuDo(series, 'active', `${t('Người hoạt động')}`)}${bieuDo(series, 'messages', `${t('Tin nhắn')}`)}${bieuDo(series, 'posts', `${t('Bài đăng')}`)}${bieuDo(series, 'reports', `${t('Báo cáo')}`)}</div>
-      ${laAi}
-      <div class="hint">${t('Xử lý báo cáo trong 24 giờ là điều khoản dễ bị gỡ app nhất — xem quy trình ở')} <code>supabase/BAO-CAO.md</code>.</div></div>`;
-    if (laAi && PT.chuGiai) PT.chuGiai(main);
-    main.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => nav(el.dataset.go)));
+    // giữ tiêu điểm bàn phím qua lượt vẽ lại (tự làm mới mỗi phút / đổi kỳ)
+    const a0 = document.activeElement; const giuTd = a0 && main.contains(a0) ? (a0.dataset.d ? `#tqKy [data-d="${a0.dataset.d}"]` : a0.dataset.cuon ? `[data-cuon="${a0.dataset.cuon}"]` : a0.dataset.go ? `[data-go="${a0.dataset.go}"]` : null) : null;
+    PT.tongQuan(main, { ky, s, sf, g, cd, dthu, vh, cl, sys: sy, st, sk, bb, laAi, canhBao, thieuMay: tqThieu, tenLyDo: (k) => REASON[k] || k,
+      cuoiHtml: `<div class="hint">${t('Xử lý báo cáo trong 24 giờ là điều khoản dễ bị gỡ app nhất — xem quy trình ở')} <code>supabase/BAO-CAO.md</code>.</div>` }, ctxPt);
+    if (PT.chuGiai) PT.chuGiai(main);
+    main.querySelectorAll('#tqKy [data-d]').forEach((b) => b.addEventListener('click', () => { state.tqKy = Number(b.dataset.d); render(); }));   // qua hàng đợi vẽ (không vẽ đè màn khác)
+    main.querySelectorAll('[data-go]').forEach((el) => {
+      el.addEventListener('click', () => nav(el.dataset.go));
+      if (el.getAttribute('role') === 'link') el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); nav(el.dataset.go); } });
+    });
+    if (giuTd) { const el = main.querySelector(giuTd); if (el) el.focus({ preventScroll: true }); }
   }
+
+  /** 19/11 — bộ nhớ ngắn cho các khối tổng hợp nặng của Tổng quan (5 phút). Hàm máy chủ CHƯA CÓ → nhớ "chưa có" (null) và ghi vào tqThieu;
+   *  lỗi khác (hết giờ, mạng) → null cho lượt này nhưng KHÔNG giữ, lượt sau hỏi lại. Bấm ↻ / đăng xuất → xoá hết. */
+  const tqNho = new Map(); const tqThieu = new Set();
+  function tqCham(khoa, ten, fn) {
+    const x = tqNho.get(khoa);
+    if (x && Date.now() - x.luc < 300_000) return x.p;
+    const p = Promise.resolve().then(fn).then((v) => v, (e) => { if (laChuaCo(e)) { tqThieu.add(ten); return null; } tqNho.delete(khoa); return null; });
+    tqNho.set(khoa, { luc: Date.now(), p });
+    return p;
+  }
+  const tqXoa = () => { tqNho.clear(); tqThieu.clear(); };
 
   /** Biểu đồ cột nhỏ dùng chung. */
   function bieuDo(series, key, title, nhan) {
@@ -2508,6 +2518,7 @@
   async function renderHeThong(main) {
     if (state.sub === 'nhatky') return renderLog(main);
     if (state.sub === 'nuoc') return renderNuoc(main);
+    if (state.sub === 'chongvuot') return renderChongVuot(main);
     main.innerHTML = dangTai;
     const sy = await rpc('admin_system');
     const baoMat = await theBaoMat();
@@ -2603,6 +2614,60 @@
       </div>`;
   }
 
+  // ---------------------------------------------------------------- CHỨNG THỰC & GIỚI HẠN (mục 36: 203 / 204 / 205 / 207)
+  // Chỉ SỐ ĐẾM — không id người dùng, không key id, không id sự kiện. Gói nào máy chủ chưa có thì khối đó ghi "chưa áp".
+  // Đổi chế độ chứng thực bản cài: chỉ owner + hai lớp (admin_chung_thuc_dat trả {error}); máy chủ ghi nhật ký mọi lần đổi (trigger 065).
+  const CT_KET_QUA = {
+    xem_dat: 'Xem ảnh tự xoá — đạt', xem_thieu: 'Xem — không kèm chứng thực (bản app cũ, Android, máy không hỗ trợ)',
+    xem_thach_sai: 'Xem — lời thách sai / đã dùng / hết hạn', xem_khoa_la: 'Xem — khoá lạ / của người khác', xem_bo_dem: 'Xem — bộ đếm không tăng (phát lại)',
+    xem_chu_ky: 'Xem — chữ ký sai', xem_moi_truong: 'Xem — khoá khác môi trường', xem_app_id: 'Xem — sai app id',
+    dk_dat: 'Đăng ký khoá — đạt', dk_thach_sai: 'Đăng ký — lời thách sai / đã dùng', dk_chua_ghim_goc: 'Đăng ký — máy chủ chưa ghim gốc Apple',
+    dk_chuoi: 'Đăng ký — chuỗi chứng chỉ sai', dk_nonce: 'Đăng ký — nonce sai', dk_moi_truong: 'Đăng ký — sai môi trường (aaguid)', dk_khoa_nguoi_khac: 'Đăng ký — khoá đã thuộc người khác',
+  };
+  async function renderChongVuot(main) {
+    main.innerHTML = dangTai;
+    const hoi = (ten) => rpc(ten).catch((e) => (laChuaCo(e) ? null : { error: 'loi' }));
+    const [ct, nl, bc, tl] = await Promise.all(['admin_chung_thuc', 'admin_gioi_han_nguoi_la', 'admin_gioi_han_bao_cao_su_kien', 'admin_gioi_han_tai_len'].map(hoi));
+    const tiles = (ds) => `<div class="tiles">${ds.map(([v, l]) => `<div class="tile"><div class="v">${v}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>`;
+    const chua = (goi) => `<div class="hint">${t('Máy chủ chưa áp gói')} ${esc(goi)}.</div>`;
+    const hong = `<div class="alertbar warn"><div>${t('Không đọc được số liệu. Thử lại.')}</div></div>`;
+    const khoi = (x, goi, ve) => (x === null ? chua(goi) : x.error ? hong : ve(x));
+    const tenCheDo = { tat: t('Tắt'), ghi_nhan: t('Chỉ ghi nhận'), bat_buoc: t('Bắt buộc') };
+    const mb = (b) => `${so(Math.round((Number(b) || 0) / 1048576))} MB`;
+    const veCt = (x) => {
+      const ngay = Array.isArray(x.ngay) ? x.ngay : [];
+      return `${tiles([[esc(tenCheDo[x.che_do] || x.che_do), t('Chế độ')], [esc(x.moi_truong), t('Môi trường')], [so(x.so_khoa), t('Khoá đã đăng ký')], [so(x.khoa_dung_7_ngay), t('Khoá dùng trong 7 ngày')]])}
+        <div class="filters" role="group" aria-label="${esc(t('Chế độ'))}">${['tat', 'ghi_nhan', 'bat_buoc'].map((m) => `<button class="chip" data-ct="${m}" aria-pressed="${x.che_do === m}" ${x.la_owner ? '' : 'disabled'}>${tenCheDo[m]}</button>`).join('')}</div>
+        <div class="hint">${t('Chỉ owner đổi được (cần xác thực hai lớp). Thứ tự: Tắt → Chỉ ghi nhận (đếm, vẫn mở ảnh) → Bắt buộc. Chỉ chuyển sang Bắt buộc khi gốc Apple đã được ghim, bản 26 đã lên App Store và dòng "không kèm chứng thực" gần như bằng 0.')}</div>
+        <table class="tbl"><thead><tr><th>${t('Ngày (UTC)')}</th><th>${t('Kết quả')}</th><th class="num">${t('Số lần')}</th></tr></thead>
+        <tbody>${ngay.length ? ngay.map((r) => `<tr><td>${esc(r.ngay)}</td><td>${CT_KET_QUA[r.ket_qua] ? esc(t(CT_KET_QUA[r.ket_qua])) : `<code>${esc(r.ket_qua)}</code>`}</td><td class="num">${so(r.so)}</td></tr>`).join('')
+          : `<tr><td colspan="3"><div class="empty">${t('Chưa có lượt nào trong 14 ngày.')}</div></td></tr>`}</tbody></table>`;
+    };
+    main.innerHTML = khung(t('Chứng thực & giới hạn'), esc(t('Chỉ số đếm — không có tên, id hay nội dung của ai.')), `
+      <div class="card stack" style="gap:10px"><h2>${t('Chứng thực bản cài (ảnh tự xoá)')}</h2>${khoi(ct, '207', veCt)}</div>
+      <div class="card stack" style="gap:10px"><h2>${t('Lời nhắn mới tới người lạ')}</h2>${khoi(nl, '203', (x) => tiles([[so(x.luot_24h), t('Lời mới trong 24 giờ')], [so(x.nguoi_gui_24h), t('Người gửi')],
+        [so(x.cham_tran_gio), `${t('Đang chạm trần giờ')} (${so(x.tran_gio)})`], [so(x.cham_tran_ngay), `${t('Đang chạm trần ngày')} (${so(x.tran_ngay)})`], [so(x.tu_choi_con_hieu_luc), t('Dấu từ chối còn hiệu lực (7 ngày)')]]))}</div>
+      <div class="card stack" style="gap:10px"><h2>${t('Báo cáo sự kiện')}</h2>${khoi(bc, '204', (x) => tiles([[so(x.bao_cao_24h), t('Báo cáo trong 24 giờ')], [so(x.nguoi_bao_24h), t('Người báo')],
+        [so(x.cham_tran), `${t('Đang chạm trần')} (${so(x.tran_ngay)} / ${t('ngày')})`], [so(x.bao_cao_mo), t('Báo cáo đang mở')], [so(x.bao_cao_mo_khong_tinh), t('Trong đó không tính vào ngưỡng tự ẩn (tài khoản < 7 ngày hoặc chưa xác nhận email)')]]))}</div>
+      <div class="card stack" style="gap:10px"><h2>${t('Tải lên')}</h2>${khoi(tl, '205', (x) => tiles([[so(x.tep_24h), t('Tệp trong 24 giờ')], [mb(x.byte_24h), t('Dung lượng trong 24 giờ')], [so(x.nguoi_tai_24h), t('Người tải')],
+        [so(x.cham_tran_gio), `${t('Đang chạm trần giờ')} (${so(x.tran_gio)})`], [so(x.cham_tran_ngay), `${t('Đang chạm trần ngày')} (2 GB)`]]))}</div>`);
+    main.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('click', async () => {
+      const m = b.dataset.ct;
+      if (!ct || ct.error || ct.che_do === m || dangGui) return;
+      const ok = await confirmAction({ title: `${t('Đổi chế độ chứng thực')}: ${tenCheDo[m]}`, okLabel: t('Đổi'), danger: m === 'bat_buoc',
+        text: m === 'bat_buoc' ? t('Máy nào không chứng thực được sẽ KHÔNG mở được ảnh tự xoá (một dòng báo; người gửi không được báo gì).') : t('Ảnh tự xoá vẫn mở như cũ; máy chủ chỉ đếm kết quả.') });
+      if (!ok) return;
+      dangGui = true;
+      try {
+        const r = await rpc('admin_chung_thuc_dat', { p_che_do: m });
+        if (r && r.error === 'mfa') toast(t('Cần xác thực hai lớp để đổi chế độ.'), true);
+        else if (r && r.error) toast(t('Chỉ owner đổi được chế độ.'), true);
+        else toast(t('Đã đổi chế độ.'));
+      } catch (e) { toast(t('Chưa đổi được. Thử lại.'), true); }
+      finally { dangGui = false; }
+      render();
+    }));
+  }
   // ---------------------------------------------------------------- NƯỚC CHỈ TRỰC TUYẾN (133 / 151)
   // Ở các nước này HIMO chỉ nhận sự kiện trực tuyến. Xem: mọi quản trị viên; thêm / bỏ: chỉ owner, lý do + xác thực hai lớp,
   // máy chủ ghi nhật ký cả lần bị từ chối (admin_nhay_cam). admin_nuoc_han_che_dat TRẢ {error} chứ không ném lỗi.
@@ -2902,7 +2967,7 @@
     clearInterval(freshTimer); freshTimer = null;
     // Rà soát 15/11: hộp thoại / ảnh phóng to nằm NGOÀI #app — đóng hết, bỏ URL có chữ ký đã nhớ, để hội thoại / ảnh riêng đang mở
     // không còn nằm trên màn đăng nhập sau khi tự đăng xuất vì bỏ máy.
-    closeModal(); dongAnhTo(); urlCache.clear(); $('#toast').hidden = true;
+    closeModal(); dongAnhTo(); urlCache.clear(); tqXoa(); $('#toast').hidden = true;
     $('#app').hidden = true; $('#login').hidden = false;
     // Bỏ nội dung đã tải: thay #main bằng một ô rỗng mới, để một lượt vẽ còn dở (đang chờ máy chủ) có xong muộn cũng chỉ ghi vào
     // ô cũ đã tách khỏi trang — không còn dữ liệu của phiên trước nằm trong trang sau khi đăng xuất.
