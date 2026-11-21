@@ -474,6 +474,32 @@ button.cd-row{cursor:pointer}
 .cd-tt-c{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--mid)}
 .cd-tt-c span{display:inline-flex;align-items:center;gap:6px}
 .cd-tt-c b{color:var(--ink);font-variant-numeric:tabular-nums}
+/* ---- sức chứa & nâng cấp (218) — chữ luôn màu chữ; xanh / vàng / đỏ chỉ ở nhãn trạng thái và thanh %, luôn kèm chữ */
+.sc-nguon{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--mid)}
+.sc-ng{display:inline-flex;align-items:center;gap:6px}.sc-ng i{width:8px;height:8px;border-radius:50%;background:var(--line2);flex:none}
+.sc-ng i.ok{background:var(--ok)}.sc-ng i.warn{background:var(--warn)}
+.sc-nhom{display:flex;flex-direction:column;gap:10px;scroll-margin-top:90px}
+.sc-nhom>h2{font-size:17px;margin:8px 0 0;border-bottom:2px solid var(--line2);padding-bottom:6px}
+.sc-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+@media(max-width:520px){.sc-luoi{grid-template-columns:1fr}}
+.sc-the{display:flex;flex-direction:column;gap:8px;min-width:0;scroll-margin-top:110px}
+.sc-the.sc-do{border-color:var(--danger)}
+.sc-dau{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.sc-dau h3{font-size:14.5px;margin:0;line-height:1.35}.sc-dau .tag{flex:none}
+.sc-so{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sc-so b{font-size:17px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.sc-so span{font-size:13px;font-weight:700;color:var(--mid);font-variant-numeric:tabular-nums}
+.sc-thanh{position:relative;height:8px;border-radius:4px;background:var(--surface2);overflow:hidden}
+.sc-thanh i{display:block;height:100%;border-radius:4px}
+.sc-thanh s{position:absolute;top:0;bottom:0;width:2px;background:var(--surface);opacity:.9}
+.sc-phu{margin:0;font-size:12.5px;color:var(--mid);line-height:1.45}
+.sc-chua{margin:0;font-size:13px;color:var(--mid);background:var(--surface2);border-radius:10px;padding:9px 11px;line-height:1.45}
+.sc-it{margin:0}
+.sc-viec{border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.sc-viec>b{font-size:11.5px;font-weight:800;color:var(--soft);text-transform:uppercase;letter-spacing:.05em}
+.sc-chan{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:2px}.sc-chan .hint{font-size:12px}
+.sc-ba small{display:block}
+.sc-bao-dong a{font-weight:700}
+.sc-tbl td{white-space:normal}.sc-tbl td:first-child{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -513,11 +539,11 @@ button.cd-row{cursor:pointer}
 <div id="modalScrim" class="scrim" hidden><div class="modal" id="modal"></div></div>
 <div id="lightbox" class="lightbox" hidden><button class="x" id="lbClose">Đóng</button><img id="lbImg" alt=""></div>
 
-<script src="admin-en.js?v=0739e272ab"></script>
-<script src="admin-en1.js?v=c2dc6cf0f0"></script>
+<script src="admin-en.js?v=0d37f9d1d8"></script>
+<script src="admin-en1.js?v=24b4f8c650"></script>
 <script src="config.js"></script>
 <script src="supabase-js-2.115.0.umd.js"></script>
-<script src="admin-phan-tich.js?v=ceffe81ac5"></script>
-<script src="admin.js?v=026486f736"></script>
+<script src="admin-phan-tich.js?v=3dd19e6915"></script>
+<script src="admin.js?v=dfe538a35e"></script>
 </body>
 </html>

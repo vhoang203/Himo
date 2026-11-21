@@ -29,4 +29,5 @@ window.HIMO_EN1 = {
   "báo cáo khẩn đang chờ": "urgent report waiting",
   "báo cáo về chính bạn": "report about you",
   "việc khác đã chờ quá 24 giờ": "other item waiting over 24 hours",
+  "nhãn": "sticker",
 };

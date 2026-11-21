@@ -2041,8 +2041,192 @@
     veBieuDo(main);
   }
 
+  // ================================================================ SỨC CHỨA & NÂNG CẤP (218, mục 47-tai phần B)
+  // Tệp này chỉ vẽ: admin.js gọi admin_suc_chua (máy chủ tính %, mức, dự phóng, ngày chạm ngưỡng) rồi đưa kết quả vào đây.
+  // Giá, hạn mức, gói kế, nơi bấm, ngày đọc giá đều đến từ máy chủ (bảng he_thong_tai_nguyen) — trang không ghi cứng giá nào.
+  // Màu: một chuỗi số TQ(1) như dashboard Tổng quan, đường ngưỡng đỏ nét đứt màu trung tính; xanh / vàng / đỏ chỉ cho TRẠNG THÁI, luôn kèm chữ.
+  const SC_TEN = {
+    db_cpu: 'CPU cơ sở dữ liệu', db_ram: 'RAM cơ sở dữ liệu', db_dia: 'Đĩa cơ sở dữ liệu', db_ket_noi: 'Kết nối Postgres', db_pooler: 'Pooler (client đang nối)',
+    realtime_ket_noi: 'Kết nối Realtime', realtime_tin_giay: 'Tin Realtime mỗi giây', kho_luu_tru: 'Kho lưu trữ (ảnh, video)', egress: 'Băng thông ra (egress)',
+    auth_thu: 'Thư Auth (mã đăng ký, đặt lại mật khẩu)', auth_thu_hong: 'Thư Auth gửi hỏng', edge_luot: 'Lượt gọi Edge Functions', day: 'Thông báo đẩy',
+    sightengine: 'Kiểm duyệt ảnh (Sightengine)', dich: 'Dịch tin nhắn', livekit_phut: 'Phút gọi (LiveKit)', livekit_dong_thoi: 'Người gọi cùng lúc (LiveKit)',
+    revenuecat: 'Doanh thu theo dõi (RevenueCat)', nguoi_mau: 'Người dùng hoạt động trong tháng (MAU)',
+  };
+  const SC_NHOM = [['Cơ sở dữ liệu', ['db']], ['Realtime, lưu trữ và MAU', ['realtime', 'kho', 'nguoi_dung']], ['Đăng nhập, thư và Edge Functions', ['auth', 'edge']],
+    ['Dịch vụ ngoài', ['day', 'kiem_duyet', 'dich', 'goi', 'thanh_toan']]];
+  /** Việc khi đỏ — câu không chứa giá; giá + gói kế đến từ máy chủ và được nối vào sau. */
+  const SC_VIEC = {
+    db_cpu: 'Nâng cỡ máy (compute) của cơ sở dữ liệu', db_ram: 'Nâng cỡ máy (compute) của cơ sở dữ liệu', db_dia: 'Mở rộng đĩa hoặc dọn dữ liệu cũ',
+    db_ket_noi: 'Nâng compute để có thêm kết nối tối đa, hoặc tìm chỗ giữ kết nối thừa', db_pooler: 'Nâng compute để pooler nhận thêm client',
+    realtime_ket_noi: 'Tắt chặn chi Realtime và chuyển kênh hộp thư sang Broadcast', realtime_tin_giay: 'Tắt chặn chi Realtime để nâng trần tin mỗi giây',
+    kho_luu_tru: 'Xem ảnh / video cũ có dọn được không, phần vượt tính theo GB', egress: 'Bật bộ nhớ đệm ảnh, xem đường gọi tốn băng thông, phần vượt tính theo GB',
+    auth_thu: 'Nâng gói gửi thư và tăng hạn gửi thư của Auth', auth_thu_hong: 'Mở nhật ký Auth xem mã lỗi. 535 nghĩa là khoá SMTP của Resend sai hoặc đã bị thu hồi',
+    edge_luot: 'Xem hàm nào gọi nhiều nhất, phần vượt tính theo triệu lượt', day: 'Xem mã lỗi ở Hệ thống, Vận hành. InvalidCredentials nghĩa là khoá APNs trên EAS hỏng',
+    sightengine: 'Nâng gói Sightengine', dich: 'Đặt ngân sách và cảnh báo cho dịch vụ dịch', livekit_phut: 'Nâng gói LiveKit', livekit_dong_thoi: 'Nâng gói LiveKit',
+    revenuecat: 'Chỉ để biết, không cần làm gì', nguoi_mau: 'Phần vượt tính theo từng MAU, xem lại chặn chi của tổ chức',
+  };
+  const SC_DV = { '%': '%', GB: 'GB', conn: 'kết nối', client: 'client', 'msg/s': 'tin / giây', email: 'thư', call: 'lượt', push: 'tin', op: 'thao tác', char: 'ký tự',
+    min: 'phút-người', people: 'người', USD: 'USD', MAU: 'MAU' };
+  const SC_GIA = { thang: 'USD / tháng', gb_thang: 'USD / GB / tháng', nghin: 'USD / 1.000', trieu: 'USD / 1 triệu', luot: 'USD / lượt', phan_tram: '%' };
+  const SC_MUC = { xanh: ['ok', 'Ổn'], vang: ['warn', 'Cần để ý'], do: ['danger', 'Cần nâng'], chua_noi: ['', 'Chưa nối'], cu: ['', 'Số cũ'], thong_tin: ['', 'Thông tin'] };
+  const SC_MAU = { xanh: 'var(--ok)', vang: 'var(--warn)', do: 'var(--danger)' };
+  /** Vì sao chưa có số, và ai phải làm gì. */
+  const scVsao = (x) => {
+    if (x.khoa === 'egress') return t('Supabase chưa có API đọc egress. Chủ dự án xem ở Organization, Usage.');
+    if (x.khoa === 'realtime_tin_giay') return t('Chưa có nguồn số cho tin mỗi giây. Xem ở Realtime, Reports của dự án.');
+    if (x.muc === 'cu' && x.loi_nguon) return `${t('Lần đọc gần nhất báo lỗi')} ${x.loi_nguon}. ${x.loi_nguon === 'http_401' || x.loi_nguon === 'http_403' ? t('Khoá đọc số sai hoặc đã bị xoá.') : t('Bộ thu sẽ thử lại sau 5 phút.')}`;
+    if (x.muc === 'cu') return t('Số cũ hơn 30 phút. Bộ thu có thể đã dừng.');
+    if (x.nguon === 'may_chu') return t('Cần khoá đọc Metrics API (bí mật SUC_CHUA_METRICS_KEY do chủ dự án nhập) và lịch gọi Edge (gói 218b).');
+    if (x.nguon === 'nhat_ky') return t('Cần khoá Management API để đọc nhật ký (bí mật SUC_CHUA_MGMT_TOKEN). Đây là quyết định của chủ dự án.');
+    return t('Bộ thu trong máy chủ chưa chạy (cần pg_cron, gói 218).');
+  };
+  const scSo = (v, dv) => { if (v == null) return '—'; const n = n0(v); const r = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10; return dv ? `${so(r)} ${t(SC_DV[dv] || dv)}` : so(r); };
+  const scNgay = (s) => { const d = new Date(String(s || '')); return isNaN(d.getTime()) ? '' : C.fmtNgay(d.toISOString()).replace(/ \d{2}:\d{2}.*$/, ''); };
+  const scLink = (s) => (typeof s === 'string' && /^https:\/\/[A-Za-z0-9.-]+(\/[^\s"<>]*)?$/.test(s) ? s : null);
+  /** Giá in đủ chữ số (0,00325 USD / MAU, 0,0213 USD / GB) — không làm tròn như so(). */
+  const scGia = (x) => (x.gia_ke_usd != null && x.gia_kieu ? `${n0(x.gia_ke_usd).toLocaleString(C.locale(), { maximumFractionDigits: 5 })} ${t(SC_GIA[x.gia_kieu] || '')}` : '');
+  const scNguongDo = (x, ng) => (x.kieu === 'cpu_ram' ? n0(ng.cpu_do_p95) : x.tich_luy && n0(x.han_muc_ngay) ? n0(x.han_muc_ngay) * n0(ng.do_pt) / 100 : !n0(x.han_muc) || x.tich_luy ? null
+    : n0(x.han_muc) * (x.kieu === 'ket_noi' ? n0(ng.ket_noi_do_pt) : x.kieu === 'realtime' ? n0(ng.realtime_do_pt) : n0(ng.do_pt)) / 100);
+  /** Một dòng chính (giá trị) + các dòng phụ theo kiểu tài nguyên. */
+  function scGiaTri(x) {
+    const p = x.phu || {}; const dv = x.don_vi;
+    if (x.kieu === 'cpu_ram') return [`${t('p95 một giờ qua')} ${scSo(x.gia_tri)} %`, p.tb_1h != null ? `${t('trung bình')} ${scSo(p.tb_1h)} %` : ''];
+    if (x.kieu === 'thu_hong') return [`${scSo(x.gia_tri)} ${t('lần hỏng trong 1 giờ qua')}`, `${t('24 giờ')}: ${scSo(p.hong_24h)} ${t('hỏng')} / ${scSo(p.thu_24h)} ${t('lần gửi')}${n0(p.het_luot_24h) ? ` · 429: ${scSo(p.het_luot_24h)}` : ''}${p.ma && Object.keys(p.ma).length ? ` · ${t('mã')} ${Object.entries(p.ma).map(([m, n]) => `${esc(m)} × ${so(n0(n))}`).join(', ')}` : ''}`];
+    if (x.kieu === 'day') return [`${t('1 giờ qua')}: ${so(n0(p.gui_1h))} ${t('gửi được')}, ${so(n0(p.hong_1h))} ${t('hỏng')}`, `${t('24 giờ')}: ${so(n0(p.gui_24h))} ${t('gửi được')}, ${so(n0(p.hong_24h))} ${t('hỏng')}`];
+    const tren = x.han_muc != null ? `${scSo(x.gia_tri)} / ${scSo(x.han_muc, dv)}` : scSo(x.gia_tri, dv);
+    if (x.kieu === 'ket_noi') return [`${t('đỉnh 24 giờ')} ${scSo(p.dinh_24h)} / ${scSo(x.han_muc, dv)}`, `${t('lúc này')} ${scSo(x.gia_tri)}`];
+    if (x.kieu === 'realtime') return [`${t('đỉnh hôm nay')} ${scSo(p.dinh_hom_nay)} / ${scSo(x.han_muc, dv)}`, `${t('lúc này')} ${scSo(x.gia_tri)}`];
+    if (x.kieu === 'thang' || x.kieu === 'thong_tin') {
+      return [`${tren}${x.tich_luy ? ` ${t('tháng này')}` : ''}`, [p.du_phong != null && x.kieu !== 'thong_tin' ? `${t('dự phóng cuối tháng')} ${scSo(p.du_phong)}` : '',
+        x.han_muc_ngay ? `${t('hôm nay')} ${scSo(p.hom_nay)} / ${scSo(x.han_muc_ngay)}` : ''].filter(Boolean).join(' · ')];
+    }
+    return [tren, ''];
+  }
+  /** Chuỗi 31 ngày (ô cuối là hôm nay, ngày UTC) → nhãn ngày + số, cắt còn `ky` ngày. */
+  function scChuoi(x, ky, luc) {
+    const v = Array.isArray(x.chuoi) ? x.chuoi.slice(-ky) : [];
+    const goc = new Date(luc || Date.now());
+    const nhan = v.map((_, i) => { const d = new Date(Date.UTC(goc.getUTCFullYear(), goc.getUTCMonth(), goc.getUTCDate() - (v.length - 1 - i))); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
+    return { v: v.map((a) => (a == null ? null : n0(a))), nhan };
+  }
+  function scThe(x, ng, ky, luc, laOwner) {
+    const [cls, chu] = SC_MUC[x.muc] || ['', x.muc || '—'];
+    const ten = t(SC_TEN[x.khoa] || x.khoa);
+    const coSo = x.muc !== 'chua_noi' && x.muc !== 'cu';
+    const pt = x.phan_tram != null ? Math.max(0, Math.min(100, n0(x.phan_tram))) : null;
+    const [chinh, phu] = coSo ? scGiaTri(x) : ['', ''];
+    const nd = scNguongDo(x, ng);
+    const ch = scChuoi(x, ky, luc);
+    const coDuong = coSo && ch.v.filter((a) => a != null).length >= 2;
+    const tenChuoi = x.kieu === 'cpu_ram' ? t('p95 một giờ cao nhất mỗi ngày') : x.kieu === 'day' ? t('tin gửi được mỗi ngày') : x.tich_luy || x.kieu === 'thu_hong' ? t('mỗi ngày') : t('cao nhất mỗi ngày');
+    const tenNguong = x.tich_luy ? t('ngưỡng đỏ của trần ngày') : t('ngưỡng đỏ');
+    const duong = coDuong ? chuThich([{ ten: tenChuoi, mau: TQ(1) }, ...(nd != null ? [{ ten: tenNguong, mau: 'var(--tq-khac)', kieu: 'pt-key-dut' }] : [])])
+      + cho((W) => vung([{ ten: tenChuoi, mau: TQ(1), gt: ch.v, kieu: 'vung' }, ...(nd != null ? [{ ten: tenNguong, mau: 'var(--tq-khac)', gt: ch.v.map(() => nd), kieu: 'dut' }] : [])],
+        ch.nhan, { W, cao: 120, tomTat: `${ten}: ${tenChuoi}, ${ky} ${t('ngày qua')}` }))
+      : coSo ? `<p class="hint sc-it">${t('Chưa đủ hai ngày số để vẽ xu hướng.')}</p>` : '';
+    const lk = scLink(x.link), ng2 = scLink(x.nguon_gia);
+    const gia = scGia(x);
+    const viec = `${t(SC_VIEC[x.khoa] || '')}${x.goi_ke && x.kieu !== 'thong_tin' ? `: ${esc(x.goi_ke)}${gia ? ` (${esc(gia)})` : ''}` : x.kieu === 'thong_tin' && x.han_muc ? `. ${t('Trên')} ${scSo(x.han_muc, 'USD')} ${t('mỗi tháng thì phí là')} ${esc(gia)}` : ''}.`;
+    const cham = x.ngay_cham ? `${x.tich_luy || x.kieu === 'thang' ? t('dự kiến hết hạn mức ngày') : t('dự kiến chạm ngưỡng đỏ ngày')} ${esc(scNgay(x.ngay_cham))}` : '';
+    return `<article class="card sc-the${x.muc === 'do' ? ' sc-do' : ''}" id="sc-${esc(x.khoa)}">
+      <div class="sc-dau"><h3>${esc(ten)}</h3><span class="tag ${cls}">${x.muc === 'do' ? '! ' : ''}${esc(t(chu))}</span></div>
+      ${coSo ? `<div class="sc-so"><b>${chinh}</b>${pt != null && x.kieu !== 'cpu_ram' ? `<span>${so(Math.round(n0(x.phan_tram) * 10) / 10)} %</span>` : ''}</div>
+        ${pt != null ? `<div class="sc-thanh" role="img" aria-label="${esc(`${ten} ${so(Math.round(pt))} %`)}"><i style="width:${pt}%;background:${SC_MAU[x.muc] || 'var(--line2)'}"></i><s style="left:${n0(ng.vang_pt)}%"></s><s style="left:${n0(ng.do_pt)}%"></s></div>` : ''}
+        ${phu || cham || x.ly_do ? `<p class="sc-phu">${[phu, x.ly_do === 'chi_csdl' ? t('chưa nối Metrics API nên đang tính bằng cỡ cơ sở dữ liệu') : '', x.ly_do === 'du_phong' ? t('đỏ vì dự phóng cuối tháng vượt hạn mức') : '', x.ly_do === 'ngay' ? t('đỏ vì gần hết trần trong ngày') : '', cham].filter(Boolean).join(' · ')}</p>` : ''}`
+        : `<p class="sc-chua">${esc(scVsao(x))}</p>`}
+      ${duong}
+      <div class="sc-viec"><b>${t('Khi đỏ thì làm gì')}</b><span>${viec}</span>
+        <div class="sc-chan">${lk ? `<a class="btn sm" href="${esc(lk)}" target="_blank" rel="noopener noreferrer">${t('Mở nơi nâng cấp')} ↗</a>` : ''}
+          <span class="hint">${x.doc_luc ? `${t('Hạn mức và giá đọc ngày')} ${esc(C.fmtNgay(x.doc_luc))}` : t('Chưa ghi ngày đọc giá')}${ng2 ? ` · <a href="${esc(ng2)}" target="_blank" rel="noopener noreferrer">${t('nguồn')}</a>` : ''}${x.tat_thu ? ` · ${t('đã tắt thư cảnh báo')}` : ''}</span>
+          ${laOwner ? `<button class="btn ghost sm" data-sc-sua="${esc(x.khoa)}">${t('Sửa')}</button>` : ''}</div></div>
+    </article>`;
+  }
+  const SC_MA_LOI = { chua_co_khoa: 'chưa có khoá gửi thư', loi_mang: 'lỗi mạng', http_401: 'khoá sai', http_403: 'khoá không đủ quyền', http_429: 'hết lượt gửi' };
+  const SC_TT_THU = { cho: 'chờ gửi', da_gui: 'đã gửi', loi: 'chưa gửi được', bo_qua_tat: 'không gửi (đã tắt thư)', bo_qua_6h: 'không gửi (đã gửi trong 6 giờ)', bo_qua_tran: 'không gửi (đủ trần thư trong ngày)', bo_qua_tuan: 'không gửi (tắt thư tuần)' };
+  function sucChua(main, d, ctx) {
+    C = ctx; tqId = 0;
+    { const tip0 = document.querySelector('.pt-tip'); if (tip0) tip0.hidden = true; }
+    const ds = Array.isArray(d.tai_nguyen) ? d.tai_nguyen : [];
+    const ng = d.nguong || {}; const ky = ctx.ky === 7 ? 7 : 30; const luc = d.luc;
+    const theo = (k) => ds.find((x) => x.khoa === k);
+    const dem = (m) => ds.filter((x) => x.muc === m).length;
+    // nguồn số
+    const ngu = d.nguon || {}; const thu = d.thu || {};
+    const mocNguon = (k, ten) => { const x = ngu[k]; const tuoi = x && x.luc ? (Date.now() - new Date(x.luc).getTime()) / 60000 : null;
+      const ok = x && !x.loi && tuoi != null && tuoi < 30;
+      return `<span class="sc-ng"><i class="${ok ? 'ok' : x ? 'warn' : ''}" aria-hidden="true"></i>${esc(ten)}: ${!x ? t('chưa nối') : x.loi ? `${t('lỗi')} ${esc(x.loi)}` : `${so(Math.max(0, Math.round(tuoi)))} ${t('phút trước')}`}</span>`; };
+    const nguonHtml = `<div class="sc-nguon">${mocNguon('noi_bo', t('Trong máy chủ'))}${mocNguon('may_chu', 'Metrics API')}${mocNguon('nhat_ky', t('Nhật ký Auth và Edge'))}
+      <span class="sc-ng"><i class="${thu.co_khoa ? 'ok' : ''}" aria-hidden="true"></i>${t('Thư cảnh báo')}: ${thu.co_khoa ? `${t('đã có khoá')}${thu.lan_gui_cuoi ? `, ${t('gửi gần nhất')} ${esc(C.fmtNgay(thu.lan_gui_cuoi))}` : ''}` : t('chưa có khoá gửi thư')}</span></div>`;
+    // lúc nào nâng
+    const ba = (Array.isArray(d.lua_chon_nang) ? d.lua_chon_nang : []).map(theo).filter(Boolean);
+    const baHtml = ba.length ? ba.map((x) => { const [cls, chu] = SC_MUC[x.muc] || ['', '']; const gia = scGia(x);
+      return `<button class="tq-cb tq-cb-${x.muc === 'do' ? 'danger' : x.muc === 'vang' ? 'warn' : 'ok'} sc-ba" data-sc-cuon="sc-${esc(x.khoa)}"><span class="tq-cbi" aria-hidden="true">${x.muc === 'xanh' ? '✓' : '!'}</span>
+        <span><b>${esc(t(SC_TEN[x.khoa] || x.khoa))}</b><small>${esc(t(chu))}${x.phan_tram != null ? ` · ${so(Math.round(n0(x.phan_tram)))} %` : ''} · ${x.ly_do === 'ngay' ? `${t('gần hết trần trong ngày')}: ${t('hôm nay')} ${scSo((x.phu || {}).hom_nay)} / ${scSo(x.han_muc_ngay)}`
+          : x.ly_do === 'du_phong' ? `${t('dự phóng cuối tháng')} ${scSo((x.phu || {}).du_phong)} / ${scSo(x.han_muc)}` : x.ngay_cham ? `${t('dự kiến chạm ngưỡng ngày')} ${esc(scNgay(x.ngay_cham))}` : t('chưa thấy ngày chạm ngưỡng')}</small>
+        <small>${x.goi_ke ? `${t('Nâng lên')} ${esc(x.goi_ke)}${gia ? ` · ${esc(gia)}` : ''}` : esc(t(SC_VIEC[x.khoa] || ''))}</small></span><span class="tq-cbx">${t('Xem')} →</span></button>`; }).join('')
+      : `<div class="tq-cb tq-cb-ok"><span class="tq-cbi" aria-hidden="true">✓</span><span><b>${t('Chưa có số để xếp')}</b><small>${t('Khi bộ thu chạy, ba phần gần ngưỡng đỏ nhất hiện ở đây.')}</small></span></div>`;
+    // người dùng (thứ tạo ra tải)
+    const nd = d.nguoi_dung || {}; const dau = (nd.dau || []).map((a) => (a == null ? null : n0(a))), dk = (nd.dang_ky || []).map((a) => (a == null ? null : n0(a)));
+    const onl = (nd.online_dinh || []).map((a) => (a == null ? null : n0(a))), dn = (nd.dang_nhap || []).map((a) => (a == null ? null : n0(a)));
+    const cuoi = (a) => (a.length ? a[a.length - 1] : null);
+    const nguoiHtml = `<div class="tq-kpis">${[
+      tqO({ nhan: t('Hoạt động hôm nay (DAU)'), gt: so(cuoi(dau)), mau: TQ(2), duong: dau.slice(-ky) }),
+      tqO({ nhan: t('Đang mở app lúc này'), gt: so(nd.online_luc_nay), mau: TQ(1), phu: `${t('đỉnh hôm nay')} ${so(cuoi(onl))}`, duong: onl.slice(-ky) }),
+      tqO({ nhan: t('MAU (30 ngày)'), gt: so(nd.mau), mau: TQ(7), phu: theo('nguoi_mau') && theo('nguoi_mau').han_muc ? `${t('gói cho')} ${so(theo('nguoi_mau').han_muc)}` : '' }),
+      tqO({ nhan: t('Đăng ký hôm nay'), gt: so(cuoi(dk)), mau: TQ(5), duong: dk.slice(-ky) }),
+      tqO({ nhan: t('Đăng nhập hôm nay'), gt: so(cuoi(dn)), mau: TQ(4), phu: t('phiên mới, không tính phiên đã đăng xuất'), duong: dn.slice(-ky) }),
+    ].join('')}</div><p class="hint">${t('Gồm cả tài khoản nội bộ và tài khoản thử. Ngày theo giờ UTC.')} ${t('"Đang mở app" đếm người có nhịp tim trong 3 phút, đỉnh là số lớn nhất của các lần đo 5 phút.')}</p>`;
+    // các nhóm tài nguyên
+    const nhomHtml = SC_NHOM.map(([ten, cac], i) => { const ds2 = ds.filter((x) => cac.includes(x.nhom)); if (!ds2.length) return '';
+      return `<section class="sc-nhom" id="scn-${i}"><h2>${esc(t(ten))}</h2><div class="sc-luoi">${ds2.map((x) => scThe(x, ng, ky, luc, d.la_owner)).join('')}</div></section>`; }).join('');
+    // Edge theo hàm
+    const ham = Array.isArray(d.ham_edge) ? d.ham_edge : null;
+    const hamHtml = ham && ham.length ? `<div class="scrollx"><table class="tbl"><thead><tr><th>${t('Hàm')}</th><th class="num">${t('Lượt 24 giờ')}</th><th class="num">${t('Lỗi 5xx')}</th><th class="num">${t('Tỉ lệ lỗi')}</th><th class="num">4xx</th><th class="num">p95</th></tr></thead>
+      <tbody>${ham.map((h) => { const tl = n0(h.luot) ? (n0(h.loi_5xx) / n0(h.luot)) * 100 : 0; return `<tr><td><code>${esc(h.ham)}</code></td><td class="num">${so(n0(h.luot))}</td><td class="num">${so(n0(h.loi_5xx))}</td>
+        <td class="num">${tl >= 5 ? `<span class="tag danger">${so(Math.round(tl * 10) / 10)} %</span>` : tl >= 0.1 ? `${so(Math.round(tl * 10) / 10)} %` : tl > 0 ? '<0,1 %' : '0 %'}</td><td class="num">${so(n0(h.loi_4xx))}</td><td class="num">${h.p95_ms != null ? `${so(n0(h.p95_ms))} ms` : '—'}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="hint">${t('Cập nhật mỗi giờ từ nhật ký Edge')}${d.ham_edge_luc ? ` · ${esc(C.fmtNgay(d.ham_edge_luc))}` : ''}. ${t('4xx thường là lời gọi bị từ chối đúng luật (chưa đăng nhập, hết lượt), không phải lỗi máy chủ.')}</p>`
+      : `<p class="hint">${esc(scVsao({ nguon: 'nhat_ky' }))}</p>`;
+    // cảnh báo đã có
+    const cb = Array.isArray(d.canh_bao) ? d.canh_bao : [];
+    const gio = C.fmtGio || C.fmtNgay;
+    const cbHtml = cb.length ? `<div class="scrollx"><table class="tbl sc-tbl"><thead><tr><th>${t('Lúc')}</th><th>${t('Phần')}</th><th>${t('Thư')}</th><th>${t('Tình trạng')}</th></tr></thead><tbody>${cb.map((b) =>
+      `<tr><td>${esc(gio(b.luc))}</td><td>${b.loai === 'tuan' ? t('Thư tuần') : esc(t(SC_TEN[b.khoa] || b.khoa))}${b.phan_tram != null ? ` · ${so(Math.round(n0(b.phan_tram)))} %` : ''}</td>
+       <td>${b.trang_thai === 'loi' ? `<span class="tag danger">${esc(t(SC_TT_THU.loi))}</span>${b.loi ? ` ${SC_MA_LOI[b.loi] ? esc(t(SC_MA_LOI[b.loi])) : `<code>${esc(b.loi)}</code>`}` : ''}` : esc(t(SC_TT_THU[b.trang_thai] || b.trang_thai))}</td>
+       <td>${b.loai !== 'do' ? '' : b.ket_thuc_luc ? `${t('hết đỏ lúc')} ${esc(gio(b.ket_thuc_luc))}` : `<span class="tag danger">${t('còn đỏ')}</span>`}</td></tr>`).join('')}</tbody></table></div>`
+      : `<p class="hint">${t('Chưa có cảnh báo nào.')}</p>`;
+    const nguongHtml = `<div class="tq-kvs">${[[t('Vàng / đỏ theo % hạn mức'), `${so(n0(ng.vang_pt))} % / ${so(n0(ng.do_pt))} %`],
+      [t('CPU, RAM vàng'), `${t('p95 một giờ')} > ${so(n0(ng.cpu_vang_p95))} % ${t('trên')} ${so(n0(ng.cpu_vang_ngay))} ${t('ngày trong tuần')}`],
+      [t('CPU, RAM đỏ'), `${t('p95 một giờ')} > ${so(n0(ng.cpu_do_p95))} % ${so(n0(ng.cpu_do_ngay_lien))} ${t('ngày liền')}`],
+      [t('Kết nối Postgres đỏ'), `${so(n0(ng.ket_noi_do_pt))} % max_connections ${t('ở bất kỳ mốc 5 phút nào trong 24 giờ')}`],
+      [t('Realtime đỏ'), `${so(n0(ng.realtime_do_pt))} % ${t('hạn mức ở đỉnh trong ngày')}`],
+      [t('Hạn mức theo tháng đỏ'), t('khi dự phóng cuối tháng (tuyến tính 7 ngày gần nhất) vượt hạn mức')],
+      [t('Thư Auth đỏ'), t('ở lần gửi hỏng đầu tiên trong một giờ, hoặc ở mức đỏ của trần ngày')],
+      [t('Thông báo đẩy đỏ'), t('khi mọi lần gửi trong 1 giờ đều hỏng')],
+      [t('Thư cảnh báo'), `${t('một thư mỗi lần đỏ, tối đa 1 thư mỗi phần trong 6 giờ')}, ${t('tối đa')} ${so(n0(ng.thu_toi_da_ngay))} ${t('thư mỗi ngày')}, ${ng.tuan_bat ? t('thư tuần sáng thứ Hai') : t('thư tuần đang tắt')}`]]
+      .map(([a, b]) => `<div><span>${esc(a)}</span><b>${b}</b></div>`).join('')}</div>${d.la_owner ? `<div class="row" style="margin-top:10px"><button class="btn sm" data-sc-nguong="1">${t('Sửa ngưỡng')}</button></div>` : ''}`;
+    const kyNut = `<div class="chips" role="group" aria-label="${esc(t('Khoảng thời gian của xu hướng'))}">${[7, 30].map((k) => `<button class="chip" data-sc-ky="${k}" aria-pressed="${ky === k}">${k} ${t('ngày')}</button>`).join('')}</div>`;
+    main.innerHTML = `<div class="stack sc" style="padding-top:14px">
+      <div class="pt-head"><div><h1>${t('Sức chứa & nâng cấp')}</h1><p class="sub">${t('Mỗi thẻ là một phần của hệ thống so với hạn mức của gói đang dùng. Số đo mỗi 5 phút. Hạn mức, giá và nơi nâng cấp lấy từ bảng cài đặt, chủ dự án sửa được.')} ${t('Ngày theo giờ UTC, điểm cuối của mỗi đường là hôm nay, chưa hết ngày.')}</p></div>${kyNut}</div>
+      ${nguonHtml}
+      <div class="tq-mini"><span>${t('Cần nâng')} <b>${so(dem('do'))}</b></span><span>${t('Cần để ý')} <b>${so(dem('vang'))}</b></span><span>${t('Ổn')} <b>${so(dem('xanh'))}</b></span><span>${t('Chưa nối')} <b>${so(dem('chua_noi') + dem('cu'))}</b></span></div>
+      <section class="card"><div class="tq-th"><div><h2>${t('Lúc nào nâng')}</h2><span class="hint">${t('ba phần gần ngưỡng đỏ nhất, ngày chạm ngưỡng dự phóng tuyến tính từ 7 ngày gần nhất')}</span></div></div><div class="tq-viec-l tq-mt">${baHtml}</div></section>
+      <section class="sc-nhom"><h2>${t('Người dùng')}</h2>${nguoiHtml}</section>
+      ${nhomHtml}
+      <section class="card"><div class="sec"><h2>${t('Edge Functions theo hàm')}</h2></div>${hamHtml}</section>
+      <section class="card"><div class="sec"><h2>${t('Cảnh báo gần đây')}</h2><span class="hint">${t('gửi tới admin@himosocial.com')}</span></div>${cbHtml}</section>
+      <section class="card"><div class="sec"><h2>${t('Ngưỡng')}</h2></div>${nguongHtml}</section>
+    </div>`;
+    main.querySelectorAll('[data-sc-cuon]').forEach((b) => b.addEventListener('click', () => { const el = main.querySelector(`#${b.dataset.scCuon}`); if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); }));
+    main.querySelectorAll('[data-sc-ky]').forEach((b) => b.addEventListener('click', () => ctx.doiKy(Number(b.dataset.scKy))));
+    main.querySelectorAll('[data-sc-sua]').forEach((b) => b.addEventListener('click', () => ctx.sua(b.dataset.scSua)));
+    main.querySelectorAll('[data-sc-nguong]').forEach((b) => b.addEventListener('click', () => ctx.suaNguong()));
+    veBieuDo(main);
+  }
+  const scTen = (k) => SC_TEN[k];
+
   /** Các hàm thuần của khối theo kỳ — để bộ kiểm tĩnh gọi thẳng (đưa ngữ cảnh t / esc / so vào trước). */
   const dtkThu = (ctx) => { C = ctx; return { csvO, dtkCsv, dtkTenTep, dtkMucTieuCot, dtkNhan, dtkKhoi, dtkAnToan, cotKy, dtkSoMucTieu, dtkHuyHieu }; };
 
-  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, goiY, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, tongQuan, dtkThu, chuGiai: ganChuGiai };
+  window.HIMO_PT = { chienLuoc, vanHanh, chuyenSau, stories, nguoiThat, suKien, goiY, chanDung, chanDungTomTat, doanhThu, doanhThuTomTat, tongQuan, dtkThu, chuGiai: ganChuGiai,
+    sucChua, scTen };
 })();

@@ -121,7 +121,7 @@
       hate: `${t('Thù ghét / phân biệt')}`, violence: `${t('Đe doạ / bạo lực')}`, spam: `${t('Spam / lừa đảo')}`, impersonation: `${t('Mạo danh')}`,
       privacy: `${t('Xâm phạm riêng tư')}`, ncii: `${t('Ảnh thân mật không đồng ý')}`, sexual: `${t('Tình dục bị cấm')}`, ip: `${t('Bản quyền')}` });
     Object.assign(KIND, { profile: `${t('Hồ sơ')}`, post: `${t('Bài đăng')}`, comment: `${t('Bình luận')}`, message: `${t('Tin nhắn')}`, album: `${t('Ảnh album')}`, unknown: `${t('Không rõ (báo cáo cũ)')}`, user: `${t('Tài khoản')}`, none: '—',
-      story: `${t('Story')}`, moment: `${t('Bộ sưu tập')}`, anh_tu_xoa: `${t('Ảnh tự xoá')}`, group: `${t('Nhóm')}`, group_poll: `${t('Bình chọn')}`, group_event: `${t('Sự kiện')}`,
+      story: `${t('Story')}`, moment: `${t('Bộ sưu tập')}`, anh_tu_xoa: `${t('Ảnh tự xoá')}`, bai_hat: `${t('Bài hát trên hồ sơ')}`, group: `${t('Nhóm')}`, group_poll: `${t('Bình chọn')}`, group_event: `${t('Sự kiện')}`,
       follow_request: `${t('Lời mời theo dõi')}`, message_request: `${t('Lời mời nhắn tin')}` });
     Object.assign(RSTATUS, { open: `${t('Đang mở')}`, reviewed: `${t('Đã xem')}`, actioned: `${t('Đã xử lý')}`, all: `${t('Tất cả')}` });
     Object.assign(MOD, { active: `${t('Bình thường')}`, suspended: `${t('Tạm khoá')}`, banned: `${t('Khoá vĩnh viễn')}` });
@@ -577,13 +577,13 @@
     { k: 'nguoidung', ten: 'Người dùng', subs: [] },
     // 151: số sự kiện cần xử lý có badge riêng ở Nội dung — badge An toàn giữ đúng nghĩa "việc có hạn 24 giờ" (báo cáo + ảnh chờ).
     { k: 'noidung',   ten: 'Nội dung',  badge: 'badgeNoiDung',
-      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện']] },
+      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện'], ['nhandan', 'Nhãn dán']] },
     { k: 'phantich',  ten: 'Phân tích', muc: 'Hiểu người dùng',
       subs: [['chienluoc', 'Chiến lược'], ['chandung', 'Chân dung người dùng'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories'], ['sukien', 'Sự kiện & tin thoại'], ['goiy', 'Gợi ý Nearby']] },
     { k: 'solieu',    ten: 'Số liệu',
       subs: [['tangtruong', 'Tăng trưởng'], ['doanhthu', 'Doanh thu'], ['giuchan', 'Giữ chân'], ['khuvuc', 'Khu vực & ngôn ngữ'], ['nhucau', 'Nhu cầu trả phí']] },
     { k: 'hethong',   ten: 'Hệ thống', muc: 'Kỹ thuật',
-      subs: [['vanhanh', 'Vận hành'], ['nhatky', 'Nhật ký'], ['nuoc', 'Nước chỉ trực tuyến'], ['chongvuot', 'Chứng thực & giới hạn']] },
+      subs: [['vanhanh', 'Vận hành'], ['succhua', 'Sức chứa & nâng cấp'], ['nhatky', 'Nhật ký'], ['nuoc', 'Nước chỉ trực tuyến'], ['chongvuot', 'Chứng thực & giới hạn']] },
   ];
   // Biểu tượng của thanh bên: SVG vẽ tay, nằm ngay trong trang (CSP không cho tải từ ngoài).
   const BT = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
@@ -622,6 +622,7 @@
     // 202 — theo kỳ: nhom (ngay | tuan | thang | nam), ky (khoảng dựng sẵn hoặc 'tuy_chon' + tu / den), ss (so sánh), so (số liệu của biểu đồ). Nhớ theo từng quản trị viên.
     dt: { ngay: 30, moi_truong: 'PRODUCTION', cua_hang: '', san_pham: '', quoc_gia: '', kieu: 'tien', nhom: 'ngay', ky: 'thang_nay', tu: '', den: '', ss: 'khong', so: 'thuc_nhan' },
     nuoc: null,
+    sc: { ky: 30 },                                 // 218 — Sức chứa & nâng cấp: xu hướng 7 / 30 ngày
   };
   const TRANG = 30;
 
@@ -738,12 +739,13 @@
         else if (state.sub === 'phaply') await renderPhapLy(main);
         else await renderAnToan(main);
       } else if (state.nhom === 'nguoidung') await renderUsers(main);
-      else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : renderNoiDung(main));
+      else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : state.sub === 'nhandan' ? renderNhanDan(main) : renderNoiDung(main));
       else if (state.nhom === 'solieu') await renderSoLieu(main);
       else if (state.nhom === 'phantich') await renderPhanTich(main);
       else await renderHeThong(main);
       if (luot !== luotVe) return;        // đã có lượt vẽ mới hơn
       hydratePhotos(main);
+      veBaoDong(main);                    // 218: dải đỏ trên mọi trang khi đường thư đỏ
     } catch (e) {
       if (luot !== luotVe) return;
       main.innerHTML = `<div class="empty">${esc(friendly(e))}<br><button class="btn sm" style="margin-top:10px" data-reload="1">${t('Tải lại')}</button></div>`;
@@ -1168,13 +1170,14 @@
     const r = d.report; const open = r.status === 'open';
     // rà soát 15/11 (tạm, tới khi SQL 166 sửa loại): máy chủ xếp báo cáo ảnh tự xoá vào 'message' → dùng target_type
     if (r.target_type === 'anh_tu_xoa') r.kind = 'anh_tu_xoa';
+    if (r.target_type === 'bai_hat') r.kind = 'bai_hat';   // 214: bài hát trên hồ sơ — gỡ ở thẻ "Bài hát trên hồ sơ" của người dùng
     const khan = r.priority === 1;
     // Người bị báo cáo có thể đã xoá tài khoản (reports.reported_id thành NULL).
     // Phải giữ nguyên null để userCard biết mà báo "đã xoá" và các nút phạt tắt đi.
     const u = d.reported || null;
     const canAct = !!(u && !u.deleted && !u.is_admin && u.id);
     // 066: báo cáo cũ không xác định được thứ bị báo cáo → không cho "Gỡ" (máy chủ cũng từ chối).
-    const canRemove = canAct && r.kind !== 'unknown' && r.kind !== 'group' && r.kind !== 'anh_tu_xoa';   // 160: ảnh tự xoá tự biến mất — không có gì để gỡ   // 083: chưa gỡ riêng được cả nhóm
+    const canRemove = canAct && r.kind !== 'unknown' && r.kind !== 'group' && r.kind !== 'anh_tu_xoa' && r.kind !== 'bai_hat';   // 214: bài hát gỡ ở thẻ người dùng (admin_bai_hat_go)   // 160: ảnh tự xoá tự biến mất — không có gì để gỡ   // 083: chưa gỡ riêng được cả nhóm
     pane.innerHTML = `
       <button class="btn ghost sm sheet-close" id="paneClose">${t('← Danh sách')}</button>
       <div class="stack">
@@ -1698,6 +1701,9 @@
           <p class="hint" style="margin:0">${t('Luật: tên hiển thị 30 ngày một lần, @username 60 ngày một lần — Free và Plus như nhau. Chỉ mở ngoại lệ khi có lý do an toàn đã kiểm chứng (quấy rối, lộ thông tin cá nhân, mạo danh).')}</p>
           <div class="hint" id="dtTinh" aria-live="polite"></div>
           <div class="actions"><button class="btn" id="dtCho">${t('Cho đổi tên một lần')}<small>${t('Không phải chờ — cần lý do, ghi nhật ký, hết hạn sau 7 ngày')}</small></button></div></div>` : ''}
+        ${u && u.id && !u.deleted ? `<div class="card stack" style="gap:8px" id="bhCard" hidden><h2>${t('Bài hát trên hồ sơ')}</h2>
+          <div class="hint" id="bhTinh" aria-live="polite"></div>
+          <div class="actions" id="bhHanh" hidden><button class="btn danger" id="bhGo">${t('Gỡ bài hát')}<small>${t('Cần lý do, có ghi nhật ký. Người dùng chọn lại bài khác được')}</small></button></div></div>` : ''}
       </div>`;
     $('#paneClose', pane).addEventListener('click', () => nav('nguoidung'));
     pane.querySelectorAll('[data-rieng]').forEach((b) => b.addEventListener('click', () => (b.dataset.rieng === 'album' ? xemAlbumRieng(u) : xemHoiThoai(u)).catch((e) => toast(friendly(e), true))));
@@ -1705,6 +1711,47 @@
     pane.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => userAction(u, b.dataset.act)));
     hydratePhotos(pane); noiXemAnh(pane);
     if ($('#dtCard', pane)) { $('#dtCho', pane).addEventListener('click', () => choDoiTen(u, pane)); veDoiTen(u, pane); }
+    if ($('#bhCard', pane)) { $('#bhGo', pane).addEventListener('click', () => goBaiHat(u, pane)); veBaiHat(u, pane); }   // 214
+  }
+
+  // ---------------------------------------------------------------- bài hát trên hồ sơ (214, mục 45)
+  // Chỉ chữ (tên bài, ca sĩ, nhãn E, trạng thái) + link tới bài trên Apple Music — không ảnh bìa (CSP của trang không mở mzstatic.com), không
+  // phát. Máy chủ quyết mọi thứ (chi_admin; gỡ cần quyền 'moderate', lý do ≥ 3 ký tự, không tự gỡ của mình, nhật ký). Chưa có 214 → ẩn thẻ.
+  const TT_BH = () => ({ ok: t('đang hiện'), mat: t('Apple Music đã gỡ bài — đang ẩn'), khong_nghe_thu: t('không còn bản nghe thử — đang ẩn') });
+  async function veBaiHat(u, pane) {
+    const card = $('#bhCard', pane); if (!card) return;
+    try {
+      const b = await rpc('admin_bai_hat_xem', { p_user: u.id });
+      if (!b) { card.hidden = true; return; }
+      card.hidden = false; $('#bhHanh', pane).hidden = false;
+      const lk = /^https:\/\/music\.apple\.com\//.test(b.lien_ket || '') ? ` · <a href="${esc(b.lien_ket)}" target="_blank" rel="noopener noreferrer">${t('Mở trên Apple Music')}</a>` : '';
+      $('#bhTinh', pane).innerHTML = `<b>${esc(b.ten)}</b> · ${esc(b.ca_si)}${b.nhay_cam ? ` <span class="tag warn">E</span>` : ''}${lk}<br>`
+        + `${esc(TT_BH()[b.trang_thai] || b.trang_thai)} · ${t('chọn lúc')} ${esc(fmtDate(b.chon_luc))}`;
+    } catch (e) {
+      if (laChuaCo(e)) { card.hidden = true; return; }
+      card.hidden = false; $('#bhTinh', pane).textContent = friendly(e);
+    }
+  }
+  async function goBaiHat(u, pane) {
+    if (dangGui) return;
+    const ans = await confirmAction({ title: t('Gỡ bài hát'), text: `${u.display_name || t('người này')} ${t('sẽ không còn bài hát trên hồ sơ. Họ chọn lại bài khác được. Việc gỡ được ghi vào nhật ký.')}`,
+      noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel: t('Gỡ bài hát'), danger: true });
+    if (!ans) return;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+    dangGui = true;
+    try {
+      await rpc('admin_bai_hat_go', { p_user: u.id, p_ly_do: ans.note });
+      toast(t('Đã gỡ bài hát khỏi hồ sơ.'));
+      await veBaiHat(u, pane);
+    } catch (e) {
+      const m = (e && e.message) || '';
+      toast(laChuaCo(e) ? t('Máy chủ chưa có bản vá 214.')
+        : /reason_required/.test(m) ? LOI_NHAY_CAM.reason_required
+        : /forbidden/.test(m) ? LOI_NHAY_CAM.forbidden
+        : /not_found/.test(m) ? LOI_NHAY_CAM.not_found
+        : /own_content/.test(m) ? LOI_NHAY_CAM.self_report
+        : friendly(e), true);
+    } finally { dangGui = false; }
   }
 
   // ---------------------------------------------------------------- đổi tên (101)
@@ -2015,6 +2062,70 @@
     : s.trang_thai === 'an' ? `<span class="tag danger">${t('Bị ẩn')}</span>` : `<span class="tag ok">${t('Đang hiện')}</span>`}${s.da_huy || s.huy_luc ? `<span class="tag">${t('Đã huỷ')}</span>` : ''}`;
   const noiSuKien = (s) => (s.truc_tuyen ? t('Trực tuyến') : [s.khu_vuc, tenNuoc(s.quoc_gia)].filter(Boolean).join(' · ') || '—');
   const LOC_SK = () => [['can_xu_ly', t('Cần xử lý')], ['cho_duyet', t('Chờ duyệt')], ['an', t('Bị ẩn')], ['bao_cao', t('Bị báo cáo')], ['sap_toi', t('Sắp diễn ra')], ['tat_ca', t('Tất cả')]];
+
+  // ---------------------------------------------------------------- nhãn dán (215, mục 47)
+  // Danh mục bộ / nhãn (kể cả đang tắt) với ảnh thu nhỏ từ kho CÔNG KHAI `stickers` của đúng máy chủ đang đăng nhập (CSP img-src đã mở
+  // máy chủ đó — không thêm nguồn nào), số tin đã gửi (tổng / 30 ngày, không id người dùng) và nút bật / tắt. Máy chủ quyết mọi thứ
+  // (chi_admin; bật / tắt cần quyền 'moderate', lý do ≥ 3 ký tự, xác thực hai lớp khi bắt buộc; ghi nhật ký). Chưa có 215 → một dòng báo.
+  const anhNhanDan = (p) => `${cfg.SUPABASE_URL}/storage/v1/object/public/stickers/${String(p).split('/').map(encodeURIComponent).join('/')}`;
+  async function renderNhanDan(main) {
+    main.innerHTML = khung(t('Nhãn dán'), esc(t('Bộ nhãn dán HIMO tự vẽ và duyệt. Tắt một bộ hay một nhãn thì không ai gửi được nữa, tin đã gửi hiện chữ thay thế. Thêm bộ mới bằng công cụ nhập (cần câu duyệt của chủ dự án).')),
+      `<div id="ndThan">${dangTai}</div>`);
+    let d;
+    try { d = await rpc('admin_nhan_dan_ds'); } catch (e) {
+      if (laChuaCo(e)) { $('#ndThan').innerHTML = `<div class="card"><div class="hint">${t('Máy chủ chưa có bản vá 215.')}</div></div>`; return; }
+      throw e;
+    }
+    const packs = (d && Array.isArray(d.packs)) ? d.packs : [];
+    const than = $('#ndThan');
+    than.innerHTML = packs.length ? `<div class="stack">${packs.map(theBoNhan).join('')}</div>`
+      : `<div class="empty">${t('Chưa có bộ nhãn dán nào trên máy chủ này.')}</div>`;
+    than.querySelectorAll('[data-nd-bo]').forEach((b) => b.addEventListener('click', () => batTatNhanDan('bo', b.dataset.ndBo, b.dataset.bat === '1', main)));
+    than.querySelectorAll('[data-nd-nhan]').forEach((b) => b.addEventListener('click', () => batTatNhanDan('nhan', b.dataset.ndNhan, b.dataset.bat === '1', main)));
+  }
+  function theBoNhan(b) {
+    const ten = (b.names && (b.names[lang] || b.names.vi || b.names.en)) || b.id;
+    const ds = Array.isArray(b.stickers) ? b.stickers : [];
+    const nhan = ds.map((s) => {
+      const em = Array.isArray(s.emoji) ? s.emoji.join(' ') : '';
+      return `<figure class="card" style="margin:0;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px${s.active ? '' : ';opacity:.5'}">
+        <img src="${esc(anhNhanDan(s.path))}" alt="${esc(em)}" width="72" height="72" loading="lazy" style="object-fit:contain">
+        <figcaption class="hint" style="text-align:center">${esc(em)} · ${so(s.tong)}</figcaption>
+        <button class="btn ghost sm" data-nd-nhan="${esc(s.id)}" data-bat="${s.active ? '0' : '1'}">${s.active ? t('Tắt nhãn') : t('Bật nhãn')}</button>
+      </figure>`;
+    }).join('');
+    return `<section class="card stack" style="gap:10px">
+      <div class="sec"><h2>${esc(ten)}</h2>
+        <span>${b.active ? `<span class="tag ok">${t('đang bật')}</span>` : `<span class="tag">${t('đang tắt')}</span>`}${b.plus_only ? ` <span class="tag accent">HIMO Plus</span>` : ''}</span>
+        <button class="btn sm${b.active ? ' ghost' : ''}" data-nd-bo="${esc(b.id)}" data-bat="${b.active ? '0' : '1'}">${b.active ? t('Tắt bộ') : t('Bật bộ')}</button></div>
+      <p class="hint">${esc(b.id)} · v${esc(b.version)} · ${so(ds.length)} ${dem(ds.length, 'nhãn')} · ${t('đã gửi')} ${so(b.tong)} (${t('30 ngày')}: ${so(b.d30)})</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px">${nhan}</div>
+    </section>`;
+  }
+  async function batTatNhanDan(loai, id, bat, main) {
+    if (dangGui) return;
+    const ans = await confirmAction({
+      title: bat ? (loai === 'bo' ? t('Bật bộ nhãn dán') : t('Bật nhãn dán')) : (loai === 'bo' ? t('Tắt bộ nhãn dán') : t('Tắt nhãn dán')),
+      text: bat ? t('Mọi người sẽ gửi được nhãn này. Việc bật được ghi vào nhật ký.')
+        : t('Không ai gửi được nữa. Tin đã gửi hiện chữ thay thế. Việc tắt được ghi vào nhật ký.'),
+      noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel: bat ? t('Bật') : t('Tắt'), danger: !bat });
+    if (!ans) return;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+    dangGui = true;
+    try {
+      await rpcHaiLop(loai === 'bo' ? 'admin_nhan_dan_bat_bo' : 'admin_nhan_dan_bat_nhan', { p_id: id, p_bat: bat, p_ly_do: ans.note });
+      toast(bat ? t('Đã bật.') : t('Đã tắt.'));
+      await renderNhanDan(main);
+    } catch (e) {
+      const m = (e && e.message) || '';
+      toast(laChuaCo(e) ? t('Máy chủ chưa có bản vá 215.')
+        : /reason_required/.test(m) ? LOI_NHAY_CAM.reason_required
+        : /mfa_required/.test(m) ? LOI_NHAY_CAM.mfa_required
+        : /forbidden/.test(m) ? LOI_NHAY_CAM.forbidden
+        : /not_found/.test(m) ? LOI_NHAY_CAM.not_found
+        : friendly(e), true);
+    } finally { dangGui = false; }
+  }
 
   async function renderSuKien(main) {
     const f = state.sk;
@@ -2519,12 +2630,16 @@
     if (state.sub === 'nhatky') return renderLog(main);
     if (state.sub === 'nuoc') return renderNuoc(main);
     if (state.sub === 'chongvuot') return renderChongVuot(main);
+    if (state.sub === 'succhua') return renderSucChua(main);
     main.innerHTML = dangTai;
     const sy = await rpc('admin_system');
     const baoMat = await theBaoMat();
     // HIMO Plus (063): absent on a server without 063 → the card is simply not shown.
     let bh = null;
     try { bh = await rpc('admin_billing_health'); } catch (e) { bh = null; }
+    // Mục 46 (gói 213): thông báo đẩy gửi được / lỗi theo mã 24 giờ. Máy chủ chưa có 213 → "chưa áp"; lỗi khác → câu thử lại.
+    let tbd = null;
+    try { tbd = await rpc('admin_thong_bao_day'); } catch (e) { tbd = laChuaCo(e) ? 'chua' : 'loi'; }
     // Đã sang trang khác trong lúc chờ (các lời gọi trên mất vài trăm ms): đừng vẽ đè trang mới.
     if ((location.hash.replace(/^#/, '').split('/')[0] || 'tongquan') !== 'hethong') return;
     const hc = sy.hang_cho || {}; const d = sy.dich || {}; const tb = sy.thong_bao || {};
@@ -2560,6 +2675,7 @@
           <div class="tile"><div class="v">${so(tb.chua_doc)}</div><div class="l">${t('chưa đọc')}</div></div>
         </div>
       </div>
+      ${theThongBaoDay(tbd)}
       <div class="card">
         <div class="sec"><h2>${t('Kho ảnh')}</h2><span class="hint">${t('số file trong Storage — dùng để ước tiền băng thông')}</span></div>
         <div class="tiles">
@@ -2590,6 +2706,48 @@
     noiBaoMat(main); hydrateBanBeTong(main);
   }
 
+  // Mục 46: mã lỗi Expo / APNs → loại (đúng như src/lib/thong-bao/expo.ts phanLoaiLoi, bộ kiểm thong-bao-46-app so hai bên) + câu cho người
+  // vận hành. Mã lạ = tạm thời (máy chủ tự thử lại). Mã đến từ máy chủ luôn đi qua esc().
+  const LOI_DAY = {
+    InvalidCredentials: ['cau-hinh', 'Khoá APNs (iPhone) hoặc FCM (Android) của dự án EAS thiếu hoặc hỏng. Chủ dự án chạy eas credentials, chọn iOS rồi Push Notifications. Xem docs/release/THONG-BAO-IOS-2011.md.'],
+    MismatchSenderId: ['cau-hinh', 'Khoá FCM (Android) trên EAS không khớp ứng dụng. Chủ dự án tải lại khoá FCM V1 trong eas credentials.'],
+    DeviceNotRegistered: ['huy-thiet-bi', 'Máy đã gỡ app hoặc tắt thông báo. Máy chủ tự ngừng gửi tới máy đó.'],
+    MessageTooBig: ['vinh-vien', 'Tin quá 4096 byte. Đây là lỗi dựng tin, báo Claude.'],
+    MessageRateExceeded: ['tam-thoi', 'Gửi quá nhanh tới một máy. Máy chủ tự thử lại.'],
+  };
+  const LOAI_LOI_DAY = { 'cau-hinh': 'Cấu hình', 'huy-thiet-bi': 'Máy không còn nhận', 'vinh-vien': 'Không thử lại', 'tam-thoi': 'Tạm thời, tự thử lại' };
+  function theThongBaoDay(x) {
+    const tieuDe = `<div class="sec"><h2>${t('Thông báo đẩy: gửi được / lỗi 24 giờ')}</h2><span class="hint">${t('chỉ số đếm và mã lỗi, "gửi được" là Expo đã nhận, chưa chắc đã hiện trên máy')}</span></div>`;
+    if (x === 'chua') return `<div class="card">${tieuDe}<div class="hint">${t('Máy chủ chưa áp gói')} 213.</div></div>`;
+    if (!x || typeof x !== 'object') return `<div class="card">${tieuDe}<div class="alertbar warn"><div>${t('Không đọc được số liệu. Thử lại.')}</div></div></div>`;
+    const ds = Array.isArray(x.ma_loi) ? x.ma_loi : [];
+    const bl = Array.isArray(x.bien_lai_loi) ? x.bien_lai_loi : [];
+    const chinh = ds[0] ? String(ds[0].ma) : '';
+    const coMa = (ma) => Object.prototype.hasOwnProperty.call(LOI_DAY, ma);
+    const giai = (ma) => (coMa(ma) ? t(LOI_DAY[ma][1]) : t('Mã lạ, máy chủ tự thử lại. Nếu lặp lại nhiều thì báo Claude.'));
+    const loai = (ma) => t(LOAI_LOI_DAY[coMa(ma) ? LOI_DAY[ma][0] : 'tam-thoi']);
+    const g = x.gio_qua || {}; const ch = x.cau_hinh || {}; const may = x.may_dang_nhan || {};
+    return `
+      ${x.tat_ca_hong_1h === true ? `<div class="alertbar"><div><b>${t('Thông báo đẩy: mọi lần gửi trong 1 giờ qua đều hỏng')}</b> (<code>${esc(chinh || '?')}</code>)<br>${esc(giai(chinh))}</div></div>` : ''}
+      ${x.tat_ca_hong_1h !== true && Number(x.gui_24h) === 0 && Number(x.hong_24h) > 0 ? `<div class="alertbar warn"><div><b>${t('24 giờ qua chưa gửi được thông báo đẩy nào')}</b> (<code>${esc(chinh || '?')}</code>)<br>${esc(giai(chinh))}</div></div>` : ''}
+      <div class="card scrollx">
+        ${tieuDe}
+        <div class="tiles">
+          <div class="tile"><div class="v">${so(x.gui_24h)}</div><div class="l">${t('gửi được')}</div></div>
+          <div class="tile${Number(x.hong_24h) ? ' alert' : ''}"><div class="v">${so(x.hong_24h)}</div><div class="l">${t('lỗi')}</div></div>
+          <div class="tile"><div class="v">${so(x.thu_lai)}</div><div class="l">${t('đang chờ thử lại')}</div></div>
+          <div class="tile"><div class="v">${so(x.bo_qua_24h)}</div><div class="l">${t('bỏ qua có lý do')}</div></div>
+        </div>
+        ${ds.length ? `<table class="tbl" style="margin-top:10px"><thead><tr><th>${t('Mã lỗi')}</th><th>${t('Loại')}</th><th>${t('lỗi')}</th><th>${t('đang chờ thử lại')}</th><th>${t('1 giờ qua')}</th></tr></thead>
+          <tbody>${ds.map((r) => `<tr><td><code>${esc(r.ma)}</code><div class="hint">${esc(giai(String(r.ma)))}</div></td><td>${esc(loai(String(r.ma)))}</td><td>${so(r.hong)}</td><td>${so(r.thu_lai)}</td><td>${so(r.gio_qua)}</td></tr>`).join('')}</tbody></table>`
+          : `<div class="hint" style="margin-top:8px">${t('Không có lỗi gửi trong 24 giờ.')}</div>`}
+        <div class="hint" style="margin-top:8px">${t('Biên lai Apple / Google 24 giờ')}: ${so(x.bien_lai_ok_24h)} ${t('đã nhận')}${bl.map((b) => ` · <code>${esc(b.ma)}</code> ${so(b.so)}`).join('')}
+          · ${t('1 giờ qua')}: ${so(g.gui)} ${t('gửi được')}, ${so(g.hong)} ${t('lỗi')}, ${so(g.thu_lai)} ${t('đang chờ thử lại')}
+          · ${t('Lần gửi được gần nhất')}: ${x.lan_gui_cuoi ? esc(fmtNgay(x.lan_gui_cuoi)) : t('chưa có')}</div>
+        <div class="hint">${t('Máy đang nhận')}: iPhone ${so(may.ios)} · Android ${so(may.android)} · ${ch.dang_gui ? t('máy chủ đang gửi') : t('máy chủ chưa gửi')}${ch.tam_dung ? ` · ${t('đang tạm dừng')}` : ''}${ch.chi_thu_nghiem ? ` · ${t('chỉ danh sách thử')} (${so(ch.so_thu)})` : ''}</div>
+      </div>`;
+  }
+
   function theThanhToan(bh) {
     const st = bh.settings || {}; const ev = bh.events || {};
     const onOff = (v) => (v ? `<b>${t('bật')}</b>` : t('tắt'));
@@ -2612,6 +2770,102 @@
         </div>
         <div class="hint" style="margin-top:8px">${t('Hàng đợi webhook')}: ${Object.entries(ev).map(([k, n]) => `${esc(k)} ${so(n)}`).join(' · ') || '0'}${bh.oldest_due ? ` · ${t('đến hạn sớm nhất')} ${esc(fmtNgay(bh.oldest_due))}` : ''}</div>
       </div>`;
+  }
+
+  // ---------------------------------------------------------------- SỨC CHỨA & NÂNG CẤP (218, mục 47-tai phần B)
+  // Máy chủ tính hết (%, mức, dự phóng, ngày chạm ngưỡng); admin-phan-tich.js chỉ vẽ. Không giá nào ghi cứng ở trang: hạn mức, giá, gói kế,
+  // nơi bấm và ngày đọc giá nằm trong bảng he_thong_tai_nguyen. Sửa: chỉ owner + hai lớp (máy chủ trả {error}); mọi lần sửa vào nhật ký (trigger 065).
+  const SC_GIA_KIEU = () => [['', t('Không có giá')], ['thang', t('USD / tháng')], ['gb_thang', t('USD / GB / tháng')], ['nghin', t('USD / 1.000')], ['trieu', t('USD / 1 triệu')], ['luot', t('USD / lượt')], ['phan_tram', '%']];
+  const scLoiDat = (r) => (r && r.error === 'mfa' ? t('Cần xác thực hai lớp để sửa.') : r && r.error === 'forbidden' ? t('Chỉ owner sửa được.') : t('Giá trị không hợp lệ. Kiểm lại số, ngày và địa chỉ (phải bắt đầu bằng https://).'));
+  async function renderSucChua(main) {
+    main.innerHTML = dangTai;
+    let d;
+    try { d = await rpc('admin_suc_chua'); }
+    catch (e) {
+      if (laChuaCo(e)) { main.innerHTML = khung(t('Sức chứa & nâng cấp'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa áp gói')} 218</b><br>${t('Cần áp supabase/218-suc-chua-giam-sat.sql. Các trang khác vẫn dùng bình thường.')}</div></div>`); return; }
+      throw e;
+    }
+    if ((location.hash.replace(/^#/, '').split('/')[0] || 'tongquan') !== 'hethong') return;
+    const PT = window.HIMO_PT;
+    if (!PT || !PT.sucChua) throw new Error(t('Thiếu tệp admin-phan-tich.js.'));
+    const ds = (d && d.tai_nguyen) || [];
+    const ctx = { t, esc, so, nav, fmtNgay, fmtGio: fmtDate, locale, lang: () => lang, ky: state.sc.ky,
+      doiKy: (k) => { state.sc.ky = k === 7 ? 7 : 30; PT.sucChua(main, d || {}, { ...ctx, ky: state.sc.ky }); veBaoDong(main); },
+      sua: (khoa) => scSua(ds.find((x) => x.khoa === khoa)),
+      suaNguong: () => scSuaNguong((d && d.nguong) || {}) };
+    PT.sucChua(main, d || {}, ctx);
+  }
+  function scSua(x) {
+    if (!x) return;
+    const PT = window.HIMO_PT || {};
+    const o = (id, nhan, gt, kieu, them) => `<label class="hint" for="${id}" style="display:block;margin:8px 0 4px">${esc(nhan)}</label><input class="text" id="${id}" ${kieu ? `type="${kieu}"` : ''} value="${esc(gt == null ? '' : gt)}" ${them || ''}>`;
+    modal(`<h2>${esc(t('Sửa'))}: ${esc(t((PT.scTen && PT.scTen(x.khoa)) || x.khoa))}</h2><p>${t('Chỉ owner sửa được, cần xác thực hai lớp. Mọi lần sửa được ghi vào nhật ký quản trị. Để trống ô nào thì xoá giá trị đó.')}</p>
+      ${o('scHan', t('Hạn mức'), x.han_muc, 'number', 'min="0" step="any"')}${x.han_muc_ngay != null || x.khoa === 'auth_thu' || x.khoa === 'sightengine' ? o('scHanNgay', t('Hạn mức mỗi ngày'), x.han_muc_ngay, 'number', 'min="0" step="any"') : ''}
+      ${o('scGoi', t('Gói kế (tên)'), x.goi_ke, 'text', 'maxlength="60"')}${o('scGia', t('Giá gói kế (USD)'), x.gia_ke_usd, 'number', 'min="0" step="any"')}
+      <label class="hint" for="scGiaKieu" style="display:block;margin:8px 0 4px">${t('Đơn vị giá')}</label><select class="text" id="scGiaKieu">${SC_GIA_KIEU().map(([k, l]) => `<option value="${k}"${(x.gia_kieu || '') === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      ${o('scLink', t('Nơi nâng cấp (https://…)'), x.link, 'url', 'maxlength="300"')}${o('scNguon', t('Trang giá đã đọc (https://…)'), x.nguon_gia, 'url', 'maxlength="300"')}
+      ${o('scDoc', t('Ngày đọc giá'), x.doc_luc ? String(x.doc_luc).slice(0, 10) : '', 'date')}
+      <label class="hint" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="scTat" style="min-height:auto"${x.tat_thu ? ' checked' : ''}> ${t('Tắt thư cảnh báo của phần này')}</label>
+      <div class="err" id="scLoi"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" id="mCancel">${t('Huỷ')}</button><button class="btn primary" id="mOk">${t('Lưu')}</button></div>`, (m) => {
+      $('#mCancel', m).onclick = () => closeModal();
+      $('#mOk', m).onclick = async () => {
+        const so2 = (id) => { const e = $(id, m); if (!e) return undefined; const v = e.value.trim(); return v === '' ? null : Number(v); };
+        const chu = (id) => { const v = $(id, m).value.trim(); return v === '' ? null : v; };
+        const thay = { han_muc: so2('#scHan'), goi_ke: chu('#scGoi'), gia_ke_usd: so2('#scGia'), gia_kieu: $('#scGiaKieu', m).value || null,
+          link: chu('#scLink'), nguon_gia: chu('#scNguon'), doc_luc: chu('#scDoc'), tat_thu: !!$('#scTat', m).checked };
+        const hn = so2('#scHanNgay'); if (hn !== undefined) thay.han_muc_ngay = hn;
+        if ([thay.han_muc, thay.gia_ke_usd, thay.han_muc_ngay].some((v) => v != null && !Number.isFinite(v))) { $('#scLoi', m).textContent = t('Giá trị không hợp lệ. Kiểm lại số, ngày và địa chỉ (phải bắt đầu bằng https://).'); return; }
+        $('#mOk', m).disabled = true;
+        let r; try { r = await rpc('admin_suc_chua_dat', { p_khoa: x.khoa, p_thay: thay }); } catch (e) { r = { error: 'loi' }; }
+        if (r && r.ok) { closeModal(); toast(t('Đã lưu.')); render(); return; }
+        $('#mOk', m).disabled = false; $('#scLoi', m).textContent = scLoiDat(r);
+      };
+    });
+  }
+  function scSuaNguong(n) {
+    const o = (id, nhan, gt, them) => `<div><label class="hint" for="${id}" style="display:block;margin:8px 0 4px">${esc(nhan)}</label><input class="text" id="${id}" type="number" value="${esc(gt == null ? '' : gt)}" ${them || ''}></div>`;
+    modalRong(`<h2>${t('Sửa ngưỡng')}</h2><p>${t('Chỉ owner sửa được, cần xác thực hai lớp. Mọi lần sửa được ghi vào nhật ký quản trị.')}</p>
+      <div class="tq-luoi2">${o('ngVang', t('Vàng ở % hạn mức'), n.vang_pt, 'min="1" max="99"')}${o('ngDo', t('Đỏ ở % hạn mức'), n.do_pt, 'min="1" max="100"')}
+      ${o('ngCpuVang', t('CPU, RAM vàng: p95 một giờ trên (%)'), n.cpu_vang_p95, 'min="1" max="99"')}${o('ngCpuVangNgay', t('Số ngày trong tuần để vàng'), n.cpu_vang_ngay, 'min="1" max="7"')}
+      ${o('ngCpuDo', t('CPU, RAM đỏ: p95 một giờ trên (%)'), n.cpu_do_p95, 'min="1" max="100"')}${o('ngCpuDoNgay', t('Số ngày liền để đỏ'), n.cpu_do_ngay_lien, 'min="1" max="7"')}
+      ${o('ngKetNoi', t('Kết nối Postgres đỏ ở (% max_connections)'), n.ket_noi_do_pt, 'min="1" max="100"')}${o('ngRt', t('Realtime đỏ ở (% hạn mức)'), n.realtime_do_pt, 'min="1" max="100"')}
+      ${o('ngThu', t('Tối đa thư cảnh báo mỗi ngày'), n.thu_toi_da_ngay, 'min="0" max="50"')}</div>
+      <label class="hint" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="ngTuan" style="min-height:auto"${n.tuan_bat ? ' checked' : ''}> ${t('Gửi thư tuần sáng thứ Hai')}</label>
+      <div class="err" id="ngLoi"></div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" id="mCancel">${t('Huỷ')}</button><button class="btn primary" id="mOk">${t('Lưu')}</button></div>`, (m) => {
+      $('#mCancel', m).onclick = () => closeModal();
+      $('#mOk', m).onclick = async () => {
+        const v = (id) => Number($(id, m).value);
+        const thay = { vang_pt: v('#ngVang'), do_pt: v('#ngDo'), cpu_vang_p95: v('#ngCpuVang'), cpu_vang_ngay: v('#ngCpuVangNgay'), cpu_do_p95: v('#ngCpuDo'),
+          cpu_do_ngay_lien: v('#ngCpuDoNgay'), ket_noi_do_pt: v('#ngKetNoi'), realtime_do_pt: v('#ngRt'), thu_toi_da_ngay: v('#ngThu'), tuan_bat: !!$('#ngTuan', m).checked };
+        if (Object.values(thay).some((x) => typeof x === 'number' && !Number.isFinite(x))) { $('#ngLoi', m).textContent = t('Giá trị không hợp lệ.'); return; }
+        $('#mOk', m).disabled = true;
+        let r; try { r = await rpc('admin_suc_chua_nguong_dat', { p_thay: thay }); } catch (e) { r = { error: 'loi' }; }
+        if (r && r.ok) { closeModal(); toast(t('Đã lưu.')); render(); return; }
+        $('#mOk', m).disabled = false; $('#ngLoi', m).textContent = r && (r.error === 'mfa' || r.error === 'forbidden') ? scLoiDat(r) : t('Giá trị không hợp lệ. Vàng phải nhỏ hơn đỏ, số ngày từ 1 tới 7.');
+      };
+    });
+  }
+  /** 218: dải đỏ trên MỌI trang khi đường thư đỏ (thư Auth hỏng / thư cảnh báo không đi được). Hỏi máy chủ tối đa mỗi phút một lần;
+   *  máy chủ chưa có 218 hoặc tài khoản không đọc được → thôi hẳn, im lặng. */
+  let bdCo = true, bdLuc = 0, bdKq = null;
+  async function veBaoDong(main) {
+    if (!bdCo || !main) return;
+    if (Date.now() - bdLuc > 60_000) {
+      bdLuc = Date.now();
+      try { bdKq = await rpc('admin_suc_chua_bao_dong'); } catch (e) { if (laChuaCo(e) || /unavailable/.test((e && e.message) || '')) bdCo = false; bdKq = null; }
+    }
+    const cu = main.querySelector('.sc-bao-dong'); if (cu) cu.remove();
+    if (!bdKq || bdKq.do !== true) return;
+    const lyDo = [bdKq.thu_auth ? t('Thư Auth đang gửi hỏng hoặc gần hết trần, người mới có thể không nhận được mã đăng ký.') : '',
+      bdKq.thu_canh_bao ? t('Có phần đang đỏ mà thư cảnh báo chưa gửi được tới admin@himosocial.com.') : ''].filter(Boolean).join(' ');
+    const el = document.createElement('div');
+    el.className = 'alertbar sc-bao-dong'; el.setAttribute('role', 'alert');
+    el.innerHTML = `<span class="pt-ic" aria-hidden="true">!</span><div><b>${t('Đường thư đang đỏ')}</b><br>${esc(lyDo)} <a href="#hethong/succhua">${t('Xem Sức chứa & nâng cấp')}</a></div>`;
+    const goc = main.querySelector('.stack') || main;
+    const dau = goc.firstElementChild;
+    if (dau && dau.nextSibling) goc.insertBefore(el, dau.nextSibling); else goc.appendChild(el);
   }
 
   // ---------------------------------------------------------------- CHỨNG THỰC & GIỚI HẠN (mục 36: 203 / 204 / 205 / 207)
