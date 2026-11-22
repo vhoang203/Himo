@@ -577,7 +577,7 @@
     { k: 'nguoidung', ten: 'Người dùng', subs: [] },
     // 151: số sự kiện cần xử lý có badge riêng ở Nội dung — badge An toàn giữ đúng nghĩa "việc có hạn 24 giờ" (báo cáo + ảnh chờ).
     { k: 'noidung',   ten: 'Nội dung',  badge: 'badgeNoiDung',
-      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện'], ['nhandan', 'Nhãn dán']] },
+      subs: [['bai', 'Bài đăng'], ['binhluan', 'Bình luận'], ['sukien', 'Sự kiện'], ['nhandan', 'Nhãn dán'], ['lehoi', 'Lễ hội']] },
     { k: 'phantich',  ten: 'Phân tích', muc: 'Hiểu người dùng',
       subs: [['chienluoc', 'Chiến lược'], ['chandung', 'Chân dung người dùng'], ['nguoithat', 'Người thật'], ['vanhanh', 'Vận hành'], ['chuyensau', 'Chuyên sâu'], ['stories', 'Stories'], ['sukien', 'Sự kiện & tin thoại'], ['goiy', 'Gợi ý Nearby']] },
     { k: 'solieu',    ten: 'Số liệu',
@@ -739,7 +739,7 @@
         else if (state.sub === 'phaply') await renderPhapLy(main);
         else await renderAnToan(main);
       } else if (state.nhom === 'nguoidung') await renderUsers(main);
-      else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : state.sub === 'nhandan' ? renderNhanDan(main) : renderNoiDung(main));
+      else if (state.nhom === 'noidung') await (state.sub === 'sukien' ? renderSuKien(main) : state.sub === 'nhandan' ? renderNhanDan(main) : state.sub === 'lehoi' ? renderLeHoi(main) : renderNoiDung(main));
       else if (state.nhom === 'solieu') await renderSoLieu(main);
       else if (state.nhom === 'phantich') await renderPhanTich(main);
       else await renderHeThong(main);
@@ -2067,6 +2067,146 @@
     : s.trang_thai === 'an' ? `<span class="tag danger">${t('Bị ẩn')}</span>` : `<span class="tag ok">${t('Đang hiện')}</span>`}${s.da_huy || s.huy_luc ? `<span class="tag">${t('Đã huỷ')}</span>` : ''}`;
   const noiSuKien = (s) => (s.truc_tuyen ? t('Trực tuyến') : [s.khu_vuc, tenNuoc(s.quoc_gia)].filter(Boolean).join(' · ') || '—');
   const LOC_SK = () => [['can_xu_ly', t('Cần xử lý')], ['cho_duyet', t('Chờ duyệt')], ['an', t('Bị ẩn')], ['bao_cao', t('Bị báo cáo')], ['sap_toi', t('Sắp diễn ra')], ['tat_ca', t('Tất cả')]];
+
+  // ---------------------------------------------------------------- lễ hội (230)
+  // App (bản 28) vẽ sẵn năm kiểu trang trí. Máy chủ chỉ giữ dữ liệu: mùa nào, kiểu nào, từ lúc nào tới lúc nào, cho ai. Mọi quản trị viên
+  // xem; thêm / sửa / đổi chế độ / nút khẩn cấp chỉ administrator / owner, lý do ≥ 3 ký tự, xác thực hai lớp, ghi nhật ký (máy chủ quyết).
+  // Giờ nhập và hiện theo đồng hồ của máy đang mở trang (fmtDate ghi múi giờ). Chưa có 230 → một dòng báo.
+  const KIEU_LH = () => ({ 'tuyet': t('Tuyết rơi'), 'phao-hoa': t('Pháo hoa'), 'den-long': t('Đèn lồng'), 'tim': t('Trái tim'), 'cau-vong': t('Cầu vồng') });
+  const CHE_DO_LH = () => [['tat', t('Tắt')], ['thu', t('Chỉ tài khoản nội bộ')], ['tat-ca', t('Mọi người')]];
+  const tagCheDoLH = (cd) => cd === 'tat-ca' ? `<span class="tag ok">${t('Mọi người')}</span>`
+    : cd === 'thu' ? `<span class="tag warn">${t('Chỉ tài khoản nội bộ')}</span>` : `<span class="tag">${t('Tắt')}</span>`;
+  const gioNhapLH = (iso) => { const d = new Date(iso || ''); return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  /** Mùa app đang hiện cho một nhóm người, đúng như le_hoi_hien_tai: trong giờ, đúng chế độ, chồng nhau → bắt đầu muộn nhất. */
+  const muaDangHienLH = (ds, khan, noiBo) => (khan ? null : ds.filter((m) => m.dang_trong_gio && (m.che_do === 'tat-ca' || (noiBo && m.che_do === 'thu')))
+    .sort((a, b) => (Date.parse(b.bat_dau) - Date.parse(a.bat_dau)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0] || null);
+  function loiLeHoi(e) {
+    const m = (e && e.message) || '';
+    return laChuaCo(e) ? t('Máy chủ chưa có bản vá 230.')
+      : /reason_required/.test(m) ? LOI_NHAY_CAM.reason_required
+      : /mfa_required/.test(m) ? LOI_NHAY_CAM.mfa_required
+      : /forbidden/.test(m) ? LOI_NHAY_CAM.forbidden
+      : /not_found/.test(m) ? LOI_NHAY_CAM.not_found
+      : /invalid/.test(m) ? t('Dữ liệu chưa đúng. Mã chỉ gồm chữ thường, số và dấu gạch nối, tên dài 2 tới 60 ký tự, giờ kết thúc phải sau giờ bắt đầu và cách không quá 62 ngày.')
+      : friendly(e);
+  }
+  async function renderLeHoi(main) {
+    main.innerHTML = khung(t('Lễ hội'), esc(t('Trang trí ngắn trên Trang chủ của app vào dịp lễ: vài giây tuyết rơi, pháo hoa, đèn lồng, trái tim hay cầu vồng, tối đa một lần mỗi 6 giờ. Không đổi nút, chữ hay bố cục nào. Người dùng tắt được trong Cài đặt, máy bật Giảm chuyển động thì không hiện. Cần app bản 28 trở lên.')),
+      `<div id="lhThan">${dangTai}</div>`);
+    let d;
+    try { d = await rpc('admin_le_hoi_ds'); } catch (e) {
+      if (laChuaCo(e)) { $('#lhThan').innerHTML = `<div class="card"><div class="hint">${t('Máy chủ chưa có bản vá 230.')}</div></div>`; return; }
+      throw e;
+    }
+    const ds = (d && Array.isArray(d.mua)) ? d.mua : [];
+    const sua = !!(d && d.sua_duoc), khan = !!(d && d.khan_cap_tat);
+    const bayGio = Date.parse((d && d.bay_gio) || '') || Date.now();
+    const KIEU = KIEU_LH();
+    const tenMua = (m) => (m ? `<b>${esc(m.ten)}</b> · ${esc(KIEU[m.kieu] || m.kieu)} · ${t('tới')} ${esc(fmtDate(m.ket_thuc))}` : t('Không có'));
+    const choMoi = muaDangHienLH(ds, khan, false), choNoiBo = muaDangHienLH(ds, khan, true);
+    const than = $('#lhThan');
+    than.innerHTML = `
+      ${khan ? `<div class="alertbar warn"><div><b>${t('Đã tắt mọi hiệu ứng lễ hội')}</b><br>${t('App không hiện trang trí nào, bất kể mùa nào đang bật, cho tới khi bấm Mở lại.')}</div></div>` : ''}
+      <div class="card">
+        <div class="sec"><h2>${t('Đang hiện trong app')}</h2>
+          ${sua ? `<button class="btn sm${khan ? '' : ' danger'}" id="lhKhanCap">${khan ? t('Mở lại hiệu ứng lễ hội') : t('Tắt mọi hiệu ứng lễ hội ngay')}</button>` : ''}</div>
+        <dl class="kv">
+          <dt>${t('Mọi người')}</dt><dd>${tenMua(choMoi)}</dd>
+          <dt>${t('Tài khoản nội bộ')}</dt><dd>${tenMua(choNoiBo)}</dd>
+        </dl>
+        <div class="hint" style="margin-top:8px">${t('App nhận thay đổi trong vòng 15 phút. Mỗi máy chỉ chạy trang trí khoảng 5 giây, tối đa một lần mỗi 6 giờ.')}</div>
+      </div>
+      <div class="card">
+        <div class="sec"><h2>${t('Các mùa')}</h2>${sua ? `<button class="btn sm primary" id="lhThem">${t('Thêm mùa')}</button>` : ''}</div>
+        ${!sua ? `<div class="hint" style="margin-bottom:8px">${t('Chỉ administrator hoặc owner thêm, sửa hay bật được mùa lễ hội.')}</div>` : ''}
+        <div class="list" style="padding:0">${ds.length ? ds.map((m) => {
+          const daQua = Date.parse(m.ket_thuc) <= bayGio;
+          // flex-wrap + nền 280px: màn hẹp thì hàng nút xuống dòng riêng dưới chữ, không đè lên chữ
+          return `<div class="item" style="cursor:default;flex-wrap:wrap${daQua ? ';opacity:.6' : ''}"><span class="t" style="flex:1 1 280px">
+            <span class="n">${esc(m.ten)} ${tagCheDoLH(m.che_do)}${m.dang_trong_gio ? ` <span class="tag accent">${t('đang trong giờ')}</span>` : ''}${daQua ? ` <span class="tag">${t('đã qua')}</span>` : ''}</span>
+            <span class="s" style="white-space:normal">${esc(KIEU[m.kieu] || m.kieu)} · ${esc(fmtDate(m.bat_dau))} → ${esc(fmtDate(m.ket_thuc))} · ${esc(m.id)}</span></span>
+            ${sua ? `<span class="row" style="gap:6px;flex-wrap:wrap;flex:0 1 auto">${CHE_DO_LH().map(([k, l]) => `<button class="btn sm${k === m.che_do ? ' primary' : ' ghost'}" data-lh="${esc(m.id)}" data-lh-cd="${k}" aria-pressed="${k === m.che_do}">${esc(l)}</button>`).join('')}
+              <button class="btn sm" data-lh-sua="${esc(m.id)}">${t('Sửa')}</button></span>` : ''}
+          </div>`;
+        }).join('') : `<div class="empty">${t('Chưa có mùa lễ hội nào.')}</div>`}</div>
+        <div class="hint" style="margin-top:8px">${t('Nên bật Chỉ tài khoản nội bộ trước, mở Trang chủ trên iPhone thật bằng tài khoản nội bộ để xem, rồi mới chuyển sang Mọi người.')}</div>
+      </div>`;
+    const theoId = (id) => ds.find((m) => m.id === id);
+    const nk = $('#lhKhanCap', than); if (nk) nk.onclick = () => khanCapLeHoi(!khan, main);
+    const nt = $('#lhThem', than); if (nt) nt.onclick = () => moFormLeHoi(null, ds, main);
+    than.querySelectorAll('[data-lh-cd]').forEach((b) => b.addEventListener('click', () => { const m = theoId(b.dataset.lh); if (m) doiCheDoLeHoi(m, b.dataset.lhCd, main); }));
+    than.querySelectorAll('[data-lh-sua]').forEach((b) => b.addEventListener('click', () => { const m = theoId(b.dataset.lhSua); if (m) moFormLeHoi(m, ds, main); }));
+  }
+  function moFormLeHoi(m, ds, main) {
+    const moi = !m, KIEU = KIEU_LH();
+    const x = m || { id: '', ten: '', kieu: 'tuyet', bat_dau: '', ket_thuc: '', che_do: 'tat' };
+    modalRong(`<h2>${moi ? t('Thêm mùa lễ hội') : t('Sửa mùa lễ hội')}</h2>
+      <p>${t('Giờ theo đồng hồ của máy bạn đang dùng. Một mùa dài tối đa 62 ngày.')}${moi ? ' ' + t('Mùa mới luôn ở chế độ Tắt, bật sau khi lưu.') : ''}</p>
+      <div class="stack" style="gap:8px">
+        <label class="hint">${t('Mã (chữ thường, số và dấu gạch nối, ví dụ tet-2028)')} <input class="text" id="lhId" maxlength="40" value="${esc(x.id)}"${moi ? '' : ' disabled'}></label>
+        <label class="hint">${t('Tên (chỉ hiện ở trang này)')} <input class="text" id="lhTen" maxlength="60" value="${esc(x.ten)}"></label>
+        <label class="hint">${t('Kiểu trang trí')} <select class="text" id="lhKieu" style="display:block;width:100%">${Object.keys(KIEU).map((k) => `<option value="${k}"${k === x.kieu ? ' selected' : ''}>${esc(KIEU[k])}</option>`).join('')}</select></label>
+        <label class="hint">${t('Bắt đầu')} <input class="text" id="lhTu" type="datetime-local" value="${esc(gioNhapLH(x.bat_dau))}"></label>
+        <label class="hint">${t('Kết thúc')} <input class="text" id="lhDen" type="datetime-local" value="${esc(gioNhapLH(x.ket_thuc))}"></label>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost" id="mCancel">${t('Huỷ')}</button><button class="btn primary" id="lhLuu">${t('Lưu')}</button></div>`, (md) => {
+      $('#mCancel', md).onclick = () => closeModal();
+      $('#lhLuu', md).onclick = () => {
+        const id = $('#lhId', md).value.trim().toLowerCase(), ten = $('#lhTen', md).value.trim(), kieu = $('#lhKieu', md).value;
+        const tu = $('#lhTu', md).value, den = $('#lhDen', md).value;
+        if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id) || id.length > 40) { toast(t('Mã chỉ gồm chữ thường, số và dấu gạch nối, tối đa 40 ký tự.'), true); return; }
+        if (moi && ds.some((y) => y.id === id)) { toast(t('Mã này đã có. Chọn mã khác hoặc bấm Sửa ở mùa đó.'), true); return; }
+        if (ten.length < 2) { toast(t('Tên cần ít nhất 2 ký tự.'), true); return; }
+        if (!tu || !den) { toast(t('Chọn giờ bắt đầu và giờ kết thúc.'), true); return; }
+        const a = new Date(tu), b = new Date(den);
+        if (isNaN(a.getTime()) || isNaN(b.getTime()) || !(b > a)) { toast(t('Giờ kết thúc phải sau giờ bắt đầu.'), true); return; }
+        if (b - a > 62 * 86_400_000) { toast(t('Một mùa dài tối đa 62 ngày.'), true); return; }
+        closeModal();
+        luuLeHoi({ id, ten, kieu, bat_dau: a.toISOString(), ket_thuc: b.toISOString(), che_do: moi ? 'tat' : x.che_do }, moi, main);
+      };
+    });
+  }
+  async function luuLeHoi(du, moi, main) {
+    if (dangGui) return;
+    const ans = await confirmAction({ title: moi ? t('Thêm mùa lễ hội') : t('Lưu thay đổi mùa lễ hội'),
+      text: du.che_do === 'tat' ? t('Mùa đang tắt nên app chưa đổi gì. Việc lưu được ghi vào nhật ký.')
+        : t('Mùa này đang bật. App đổi theo giờ mới trong vòng 15 phút. Việc lưu được ghi vào nhật ký.'),
+      noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel: t('Lưu') });
+    if (!ans) return;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+    dangGui = true;
+    try { await rpcHaiLop('admin_le_hoi_luu', { p_mua: du, p_ly_do: ans.note }); toast(t('Đã lưu.')); await renderLeHoi(main); }
+    catch (e) { toast(loiLeHoi(e), true); }
+    finally { dangGui = false; }
+  }
+  async function doiCheDoLeHoi(m, cd, main) {
+    if (dangGui || cd === m.che_do) return;
+    const TEN = Object.fromEntries(CHE_DO_LH());
+    const ans = await confirmAction({ title: `${m.ten}: ${TEN[cd] || cd}`,
+      text: `${cd === 'tat' ? t('App thôi hiện trang trí của mùa này trong vòng 15 phút.')
+        : cd === 'thu' ? t('Chỉ các tài khoản nội bộ thấy trang trí khi đang trong giờ của mùa. Dùng để thử trên iPhone thật trước khi mở cho mọi người.')
+        : t('Mọi người dùng app bản 28 trở lên sẽ thấy trang trí khi đang trong giờ của mùa.')} ${t('Việc đổi được ghi vào nhật ký.')}`,
+      noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel: t('Đổi') });
+    if (!ans) return;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+    dangGui = true;
+    try { await rpcHaiLop('admin_le_hoi_che_do', { p_id: m.id, p_che_do: cd, p_ly_do: ans.note }); toast(t('Đã đổi.')); await renderLeHoi(main); }
+    catch (e) { toast(loiLeHoi(e), true); }
+    finally { dangGui = false; }
+  }
+  async function khanCapLeHoi(tat, main) {
+    if (dangGui) return;
+    const ans = await confirmAction({ title: tat ? t('Tắt mọi hiệu ứng lễ hội ngay') : t('Mở lại hiệu ứng lễ hội'),
+      text: tat ? t('App thôi hiện mọi trang trí lễ hội trong vòng 15 phút, bất kể mùa nào đang bật. Các mùa giữ nguyên chế độ để mở lại sau. Việc tắt được ghi vào nhật ký.')
+        : t('Mùa nào đang bật và đang trong giờ sẽ hiện lại trong app trong vòng 15 phút. Việc mở lại được ghi vào nhật ký.'),
+      noteLabel: t('Lý do (bắt buộc, ít nhất 3 ký tự)'), okLabel: tat ? t('Tắt hết') : t('Mở lại'), danger: tat });
+    if (!ans) return;
+    if (ans.note.length < 3) { toast(LOI_NHAY_CAM.reason_required, true); return; }
+    dangGui = true;
+    try { await rpcHaiLop('admin_le_hoi_khan_cap', { p_tat: tat, p_ly_do: ans.note }); toast(tat ? t('Đã tắt.') : t('Đã mở lại.')); await renderLeHoi(main); }
+    catch (e) { toast(loiLeHoi(e), true); }
+    finally { dangGui = false; }
+  }
 
   // ---------------------------------------------------------------- nhãn dán (215, mục 47)
   // Danh mục bộ / nhãn (kể cả đang tắt) với ảnh thu nhỏ từ kho CÔNG KHAI `stickers` của đúng máy chủ đang đăng nhập (CSP img-src đã mở
