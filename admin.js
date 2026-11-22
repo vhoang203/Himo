@@ -807,16 +807,21 @@
   // thì phiên cũng đã đóng.
   const NGHI_MS = 30 * 60_000;
   let chamCuoi = Date.now();
+  // 22/11 (mục 48, QT-1): chỉ xét "bỏ mặc" khi trang quản trị ĐANG MỞ. Ở màn đăng nhập (kể cả hộp nhập mã hai lớp) mọi lần chạm chỉ là
+  // chạm — trước đây chamCuoi chỉ được đặt lại khi đăng nhập xong, nên sau lần tự đăng xuất phím đầu tiên ở màn đăng nhập lại đăng xuất
+  // ngay phiên vừa đăng nhập (và đóng hộp nhập mã): không đăng nhập lại được nếu không tải lại trang.
+  const dangMoTrang = () => !$('#app').hidden;
   ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
     document.addEventListener(ev, () => {
       // Kiểm toán 17/11: máy ngủ thì bộ hẹn 15 giây không chạy — lần chạm đầu sau khi mở máy phải bị xét là "đã bỏ mặc quá 30 phút" trước
-      if (Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }
+      if (dangMoTrang() && Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }
       chamCuoi = Date.now();
     }, { passive: true, capture: true }));
   async function kiemTraBoMac() {
-    if (Date.now() - chamCuoi < NGHI_MS) return;
+    if (!dangMoTrang() || Date.now() - chamCuoi < NGHI_MS) return;
     clearInterval(autoTimer); autoTimer = null;
     clearInterval(freshTimer); freshTimer = null;
+    chamCuoi = Date.now();   // QT-1: đồng hồ bỏ mặc bắt đầu lại từ màn đăng nhập
     try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
     location.hash = '';
     showLogin(t('Đã tự đăng xuất vì bạn không dùng trang trong 30 phút.'));
@@ -835,7 +840,7 @@
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
-    if (Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }   // kiểm toán 17/11: quay lại thẻ sau hơn 30 phút → đăng xuất, không tải dữ liệu mới
+    if (dangMoTrang() && Date.now() - chamCuoi >= NGHI_MS) { kiemTraBoMac(); return; }   // kiểm toán 17/11: quay lại thẻ sau hơn 30 phút → đăng xuất, không tải dữ liệu mới
     if (Date.now() - lastLoad < 20_000) return;
     if (canAuto()) autoRefresh(true); else { refreshBadges(); showFreshness(); }
   });
@@ -2359,6 +2364,9 @@
 
   function veTangTruong(main, g) {
     const hn = g.hom_nay || {}; const ph = g.phieu || {};
+    // 22/11 (mục 48, QT-4): như Tổng quan — DAU trung bình của 7 ngày TRỌN gần nhất (bỏ hôm nay chưa hết ngày, bỏ ngày trước khi có dữ liệu) ÷ MAU
+    const ngay7 = (g.series || []).slice(-8, -1).filter((r) => !(g.do_tu && String(r.day) < String(g.do_tu)));
+    const dinhTb = ngay7.length && Number(hn.mau) ? Math.round(((ngay7.reduce((a, r) => a + (Number(r.dau) || 0), 0) / ngay7.length) / Number(hn.mau)) * 1000) / 10 : null;
     const buoc = [
       [`${t('Đăng ký')}`, ph.dang_ky],
       [`${t('Có ảnh đại diện')}`, ph.co_anh],
@@ -2371,7 +2379,7 @@
         <div class="tile"><div class="v">${so(hn.dau)}</div><div class="l">${t('hoạt động hôm nay (DAU)')}</div></div>
         <div class="tile"><div class="v">${so(hn.wau)}</div><div class="l">${t('hoạt động 7 ngày (WAU)')}</div></div>
         <div class="tile"><div class="v">${so(hn.mau)}</div><div class="l">${t('hoạt động 30 ngày (MAU)')}</div></div>
-        <div class="tile"><div class="v">${g.dinh_dinh != null ? g.dinh_dinh + '%' : '—'}</div><div class="l">${t('DAU/MAU — độ dính')}</div></div>
+        <div class="tile"><div class="v">${dinhTb != null ? so(dinhTb) + '%' : '—'}</div><div class="l">${t('DAU/MAU — độ dính')}</div><div class="hint">${t('DAU trung bình 7 ngày ÷ MAU')}</div></div>
         <div class="tile"><div class="v">${so(hn.tong)}</div><div class="l">${dem(hn.tong, 'tổng tài khoản')}</div></div>
         <div class="tile"><div class="v">${so(hn.moi_hom_nay)}</div><div class="l">${dem(hn.moi_hom_nay, 'đăng ký hôm nay')}</div></div>
         <div class="tile"><div class="v">${so(hn.moi_7d)}</div><div class="l">${dem(hn.moi_7d, 'đăng ký 7 ngày')}</div></div>
@@ -2406,7 +2414,7 @@
             <td>${o(pct(r.d1, r.so_nguoi), r.du_lieu_d1)}</td>
             <td>${o(pct(r.d7, r.so_nguoi), r.du_lieu_d7)}</td>
             <td>${o(pct(r.d30, r.so_nguoi), r.du_lieu_d30)}</td>
-          </tr>`).join('') : `<tr><td colspan="5"><div class="empty">${t('Chưa có nhóm nào trong 60 ngày qua.')}</div></td></tr>`}</tbody>
+          </tr>`).join('') : `<tr><td colspan="5"><div class="empty">${t('Chưa có nhóm nào trong 90 ngày qua.')}</div></td></tr>`}</tbody>
         </table>
       </div>
       <div class="card">
@@ -2780,7 +2788,7 @@
   async function renderSucChua(main) {
     main.innerHTML = dangTai;
     let d;
-    try { d = await rpc('admin_suc_chua'); }
+    try { d = await rpc('admin_suc_chua'); if (d && d.nguong) window.HIMO_NGUONG = d.nguong; }   // mục 48 QT-8
     catch (e) {
       if (laChuaCo(e)) { main.innerHTML = khung(t('Sức chứa & nâng cấp'), '', `<div class="alertbar warn"><div><b>${t('Máy chủ chưa áp gói')} 218</b><br>${t('Cần áp supabase/218-suc-chua-giam-sat.sql. Các trang khác vẫn dùng bình thường.')}</div></div>`); return; }
       throw e;
@@ -2855,6 +2863,7 @@
     if (Date.now() - bdLuc > 60_000) {
       bdLuc = Date.now();
       try { bdKq = await rpc('admin_suc_chua_bao_dong'); } catch (e) { if (laChuaCo(e) || /unavailable/.test((e && e.message) || '')) bdCo = false; bdKq = null; }
+      if (bdKq && bdKq.nguong) window.HIMO_NGUONG = bdKq.nguong;   // 22/11 (mục 48, QT-8): 226 trả ngưỡng vàng / đỏ — Tổng quan / Vận hành dùng chung
     }
     const cu = main.querySelector('.sc-bao-dong'); if (cu) cu.remove();
     if (!bdKq || bdKq.do !== true) return;
@@ -3015,10 +3024,17 @@
       if (cap) cap.onclick = async () => {
         const loai = m.querySelector('#pLoai').value, ngay = Number(m.querySelector('#pNgay').value);
         if (!(ngay >= 1 && ngay <= 366)) { toast(t('Số ngày phải từ 1 tới 366.'), true); return; }
-        const ld = await hoiLyDoViec(`${t('Cấp Plus')} ${ngay} ${t('ngày')}: ${u.display_name || ''}`, t('Người này có HIMO Plus tới hết thời hạn cấp. Việc cấp được ghi vào nhật ký kèm tên bạn.'), t('Cấp Plus'));
+        // 22/11 (mục 48, PLUS-7): ngày cấp tính TỪ HÔM NAY. Người đang có Plus tới sau ngày đó (đang trả tiền) thì không được cộng thêm ngày nào — nói rõ.
+        const truocMs = d.plus_until ? new Date(d.plus_until).getTime() : 0;
+        const conPlus = truocMs > Date.now();
+        const ld = await hoiLyDoViec(`${t('Cấp Plus')} ${ngay} ${t('ngày')}: ${u.display_name || ''}`, `${t('Người này có HIMO Plus tới hết thời hạn cấp. Việc cấp được ghi vào nhật ký kèm tên bạn.')}${conPlus ? ` ${t('Người này đang có Plus tới')} ${ngay172(d.plus_until)}. ${t('Ngày cấp tính từ hôm nay, không cộng nối vào sau ngày đó.')}` : ''}`, t('Cấp Plus'));
         if (!ld) return;
         const kq = await goiNhayCam('admin_plus_cap', { p_user: u.id, p_loai: loai, p_ngay: ngay, p_ly_do: ld }, chiOwner);
-        if (kq) toast(`${t('Đã cấp Plus tới')} ${fmtDate(kq.plus_until)}`);
+        if (kq) {
+          const sauMs = kq.plus_until ? new Date(kq.plus_until).getTime() : 0;
+          if (conPlus && sauMs <= truocMs + 60_000) toast(`${t('Plus vẫn tới')} ${fmtDate(kq.plus_until)}. ${t('Người này đang có Plus dài hơn số ngày vừa cấp nên không được cộng thêm ngày.')}`);
+          else toast(`${t('Đã cấp Plus tới')} ${fmtDate(kq.plus_until)}`);
+        }
       };
       m.querySelectorAll('[data-thu-km]').forEach((b) => { b.onclick = async () => {
         const id = b.dataset.thuKm;

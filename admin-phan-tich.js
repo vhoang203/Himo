@@ -46,6 +46,13 @@
 
   // ---------------------------------------------------------------- mảnh nhỏ
   /** Mũi tên thay đổi so với kỳ trước. tot: 'len' (tăng là tốt) | 'xuong' (giảm là tốt) | null (trung tính). */
+  /** 22/11 (mục 48, QT-8): ngưỡng vàng / đỏ (% hạn mức) của trang Sức chứa (218, máy chủ trả qua admin_suc_chua_bao_dong / admin_suc_chua);
+   *  chưa đọc được thì dùng mặc định của 218 (60 / 80). Trước đây Tổng quan / Vận hành ghi cứng 80 / 95 nên cùng tài nguyên hai màu. */
+  function nguongSc() {
+    const n = window.HIMO_NGUONG || {};
+    const vang = Number(n.vang_pt) > 0 ? Number(n.vang_pt) : 60, dd = Number(n.do_pt) > 0 ? Number(n.do_pt) : 80;
+    return { vang, do: Math.max(vang, dd) };
+  }
   function bienDong(cur, prev, tot) {
     if (cur == null || prev == null) return '';
     if (prev === 0 && cur === 0) return `<span class="pt-d pt-d0">${t('không đổi')}</span>`;
@@ -260,7 +267,8 @@
     C = ctx;
     const k = o2.kpi; const d = o2.ngay;
     const hd = k.hoat_dong.cur, hd0 = k.hoat_dong.prev;
-    const dinh = hd ? pct1(k.dau_tb.cur, hd) : null, dinh0 = hd0 ? pct1(k.dau_tb.prev, hd0) : null;
+    // 22/11 (mục 48, QT-6): 226 tính DAU trung bình trên ngày TRỌN có dữ liệu; chưa đủ ngày → null → "—"
+    const dinh = hd && k.dau_tb.cur != null ? pct1(k.dau_tb.cur, hd) : null, dinh0 = hd0 && k.dau_tb.prev != null ? pct1(k.dau_tb.prev, hd0) : null;
     const hai = hd ? pct1(k.hai_chieu.cur, hd) : null, hai0 = hd0 ? pct1(k.hai_chieu.prev, hd0) : null;
     const g7 = k.giu_7n.cur, g70 = k.giu_7n.prev;
     const d7 = g7 && g7.n ? pct1(g7.quay, g7.n) : null, d70 = g70 && g70.n ? pct1(g70.quay, g70.n) : null;
@@ -272,7 +280,7 @@
     const tiles = [
       o(t('Người hoạt động'), so(hd), bienDong(hd, hd0, 'len'), kyTruoc(hd0)),
       o(t('Đăng ký mới'), so(k.dang_ky.cur), bienDong(k.dang_ky.cur, k.dang_ky.prev, 'len'), kyTruoc(k.dang_ky.prev)),
-      o(t('DAU trung bình'), so(k.dau_tb.cur), bienDong(k.dau_tb.cur, k.dau_tb.prev, 'len'), kyTruoc(k.dau_tb.prev)),
+      o(t('DAU trung bình'), k.dau_tb.cur == null ? '—' : so(k.dau_tb.cur), bienDong(k.dau_tb.cur, k.dau_tb.prev, 'len'), `${kyTruoc(k.dau_tb.prev)}${k.dau_tb.ngay_tron ? ` · ${t('ngày trọn, không tính hôm nay')}` : ''}`),
       o(t('Độ dính (DAU ÷ người hoạt động)'), hienPct(dinh), bienDong(dinh, dinh0, 'len'), kyTruoc(dinh0, hienPct), hd < MAU_KHONG_DU),
       o(t('Trò chuyện hai chiều'), hienPct(hai), bienDong(hai, hai0, 'len'), `${t('mốc')} ≥ 40%`, hd < MAU_KHONG_DU),
       o(t('Quay lại trong 7 ngày'), hienPct(d7), bienDong(d7, d70, 'len'), `${g7 ? so(g7.quay) + '/' + so(g7.n) : '—'} · ${t('mốc')} ≥ 25%`, !g7 || g7.n < MAU_KHONG_DU),
@@ -394,7 +402,7 @@
     const thanhSucChua = (ten, dung, gioiHan, phu) => {
       const p = dung == null ? null : Math.min(100, Math.round((dung / gioiHan) * 1000) / 10);
       return `<div class="pt-cap"><div class="row" style="justify-content:space-between"><b>${esc(ten)}</b><span>${bytes(dung)} / ${bytes(gioiHan)}${p != null ? ` · ${so(p)}%` : ''}</span></div>
-        <span class="pt-hb"><i style="width:${p == null ? 0 : Math.max(0.8, p)}%;background:${p != null && p >= 80 ? 'var(--warn)' : 'var(--primary)'}"></i></span>${phu ? `<div class="hint">${phu}</div>` : ''}</div>`;
+        <span class="pt-hb"><i style="width:${p == null ? 0 : Math.max(0.8, p)}%;background:${p != null && p >= nguongSc().do ? 'var(--danger)' : p != null && p >= nguongSc().vang ? 'var(--warn)' : 'var(--primary)'}"></i></span>${phu ? `<div class="hint">${phu}</div>` : ''}</div>`;
     };
 
     main.innerHTML = `<div class="stack" style="padding-top:14px">
@@ -614,7 +622,7 @@
         ${o(t('WAU (7 ngày)'), so(hd.wau || 0), '', '')}
         ${o(t('DAU (hôm nay, UTC)'), so(hd.dau || 0), '', '')}
         ${o(t('Tài khoản thật'), so(tk.that || 0), '', `${so(tk.noi_bo || 0)} ${t('nội bộ / thử')} · ${so(tk.tong || 0)} ${t('tổng')}`)}
-        ${o(t('Người trả phí (cửa hàng)'), pl.tra_phi_cua_hang_that == null ? '—' : so(pl.tra_phi_cua_hang_that), '', pl.ty_le_tra_phi_mau == null ? t('chưa có 063') : `${hienPct(Math.round(pl.ty_le_tra_phi_mau * 1000) / 10)} ${t('của MAU')}`)}
+        ${o(t('Người trả phí (cửa hàng)'), pl.tra_phi_cua_hang_that == null ? '—' : so(pl.tra_phi_cua_hang_that), '', pl.ty_le_tra_phi_mau == null ? t('chưa có 063') : `${hienPct(Math.round(pl.ty_le_tra_phi_mau * 1000) / 10)} ${t('so với MAU')} · ${t('không gồm dùng thử')}`)}
       </div>
       <div class="pt-grid2">
         ${the(t('Mới và kích hoạt'), t('kích hoạt = trong 7 ngày đầu đã nhắn tin, theo dõi hoặc ghé một người thật khác'),
@@ -1140,6 +1148,8 @@
       than = `<div class="card"><div class="empty"><b>${t('Bạn không có quyền xem doanh thu')}</b><br>${t('Chỉ vai Quản trị viên (administrator) và Chủ (owner) xem được thẻ này.')}</div></div>`;
     } else {
       const tg = o.tong || {}, tr = o.truoc || {}, tb = o.thue_bao || {}, mrr = o.mrr || {}, soGhi = o.so || {};
+      // 22/11 (mục 48, QT-3): "Người đang trả tiền" không gồm người đang dùng thử (như Tổng quan, luật f); mũi tên so kỳ bỏ vì kỳ này có hôm nay chưa hết ngày (luật e)
+      const traThat = Math.max(0, n(tb.dang_tra) - n(tb.dung_thu));
       const n = (v) => Number(v) || 0;
       const chuoi = o.chuoi || [];
       const kieu = dt.kieu === 'gd' ? 'gd' : 'tien';
@@ -1147,14 +1157,15 @@
         ${n(soGhi.thieu) > 0 ? `<div class="alertbar"><div><b>${so(soGhi.thieu)} ${t('sự kiện có tiền chưa vào sổ')}</b><br>${t('Con số bên dưới đang thiếu các giao dịch này. Chạy trong SQL Editor:')} <code>select public.billing_doanh_thu_bu();</code></div></div>` : ''}
         ${n(soGhi.dong) === 0 ? `<div class="alertbar ok"><div><b>${t('Chưa có giao dịch nào trong sổ')}</b><br>${t('Sổ ghi từ lúc áp bản vá 168 (và ghi bù các sự kiện trong 90 ngày trước đó). Khi có người mua HIMO Plus, giao dịch hiện ở đây trong vài giây.')}</div></div>` : ''}`;
       const kpi = `${coKy && tt.ky && !tt.ky.error ? `<div class="sec lon"><h2>${dt.ngay} ${t('ngày gần nhất')}</h2><span class="hint">${t('các ô số, biểu đồ theo ngày và bảng chia theo gói / nước bên dưới')}</span></div>` : ''}<div class="tiles pt-tiles dt-tiles">
-        ${cdO(t('Doanh thu gộp'), esc(dtTien(tg.gop)), bienDong(n(tg.gop), n(tr.gop), 'len'), `${so(n(tg.mua_moi) + n(tg.gia_han) + n(tg.mua_le))} ${t('giao dịch trả tiền')}`)}
-        ${cdO(t('Hoàn tiền'), esc(dtTien(tg.hoan)), bienDong(n(tg.hoan_tien), n(tr.hoan_tien), 'xuong'), `${so(tg.hoan_tien)} ${t('lần')}${n(tg.dao_hoan) ? ` · ${t('đảo lại')} ${esc(dtTien(tg.dao_hoan))}` : ''}`)}
-        ${cdO(t('Doanh thu ròng'), esc(dtTien(tg.rong)), bienDong(n(tg.rong), n(tr.rong), 'len'), t('gộp trừ hoàn tiền'))}
+        ${cdO(t('Doanh thu gộp'), esc(dtTien(tg.gop)), '', `${so(n(tg.mua_moi) + n(tg.gia_han) + n(tg.mua_le))} ${t('giao dịch trả tiền')}`)}
+        ${cdO(t('Hoàn tiền'), esc(dtTien(tg.hoan)), '', `${so(tg.hoan_tien)} ${t('lần')}${n(tg.dao_hoan) ? ` · ${t('đảo lại')} ${esc(dtTien(tg.dao_hoan))}` : ''}`)}
+        ${cdO(t('Doanh thu ròng'), esc(dtTien(tg.rong)), '', t('gộp trừ hoàn tiền'))}
         ${cdO(t('Thực nhận ước tính'), esc(dtTien(tg.thuc_nhan)), '', n(tg.thieu_ti_le) ? `${so(tg.thieu_ti_le)} ${t('giao dịch chưa rõ thuế / phí')}` : t('sau thuế và phí cửa hàng'))}
-        ${cdO(t('Người đang trả tiền'), so(tb.dang_tra), '', n(o.nguoi_dung) ? `${so(Math.round((n(tb.dang_tra) / n(o.nguoi_dung)) * 1000) / 10)}% ${t('của')} ${so(o.nguoi_dung)} ${t('người dùng')}` : t('lúc này'))}
-        ${cdO(t('MRR ước tính'), esc(dtTien(mrr.usd)), '', n(mrr.thieu_gia) ? `${so(mrr.thieu_gia)} ${t('thuê bao chưa có giá tham chiếu')}` : t('gói đang tự gia hạn, quy về một tháng'))}
-        ${cdO(t('Mua mới'), so(tg.mua_moi), bienDong(n(tg.mua_moi), n(tr.mua_moi), 'len'), n(tg.dung_thu) ? `+ ${so(tg.dung_thu)} ${t('bắt đầu dùng thử')}` : '')}
-        ${cdO(t('Gia hạn'), so(tg.gia_han), bienDong(n(tg.gia_han), n(tr.gia_han), 'len'), n(tg.doi_tu_dung_thu) ? `${so(tg.doi_tu_dung_thu)} ${t('từ dùng thử')}` : '')}
+        ${cdO(t('Người đang trả tiền'), so(traThat), '', `${n(o.nguoi_dung) ? `${so(Math.round((traThat / n(o.nguoi_dung)) * 1000) / 10)}% ${t('của')} ${so(o.nguoi_dung)} ${t('người dùng')}` : t('lúc này')}${n(tb.dung_thu) ? ` · + ${so(tb.dung_thu)} ${t('dùng thử')}` : ''}`)}
+        ${cdO(t('MRR ước tính'), esc(dtTien(mrr.usd)), '', `${n(mrr.thieu_gia) ? `${so(mrr.thieu_gia)} ${t('thuê bao chưa có giá tham chiếu')}` : t('gói đang tự gia hạn, quy về một tháng')}${n(tb.dung_thu) ? ` · ${t('gồm cả dùng thử')}` : ''}`)}
+        ${cdO(t('Mua mới'), so(tg.mua_moi), '', n(tg.dung_thu) ? `+ ${so(tg.dung_thu)} ${t('bắt đầu dùng thử')}` : '')}
+        ${cdO(t('Gia hạn'), so(tg.gia_han), '', n(tg.doi_tu_dung_thu) ? `${so(tg.doi_tu_dung_thu)} ${t('từ dùng thử')}` : '')}
+
       </div>`;
       const bieuDo = the(t('Theo ngày'), `${esc(fmtNgayDt(o.tu_ngay))} → ${esc(fmtNgayDt(o.den_ngay))} · ${esc(o.tz || 'UTC')}`,
         `<div class="row" style="margin-bottom:8px"><span class="chips">${[['tien', t('Doanh thu (USD)')], ['gd', t('Số giao dịch')]].map(([k, l]) => `<button type="button" class="chip" data-dt-kieu="${k}" aria-pressed="${kieu === k}">${l}</button>`).join('')}</span></div>
@@ -1674,12 +1685,13 @@
     return `<div class="tq-han" role="img" aria-label="${esc(phan.map((p) => `${p.ten}: ${n0(p.n)}`).join(', '))}">${phan.filter((p) => n0(p.n) > 0).map((p) => `<i style="flex:${n0(p.n)};background:var(--${p.m})" data-tip="${esc(`${p.ten}: ${so(n0(p.n))}`)}"></i>`).join('')}</div>
       <div class="tq-hanl">${phan.map((p) => `<span><i style="background:var(--${p.m})"></i>${esc(p.ten)} <b>${so(n0(p.n))}</b></span>`).join('')}</div>`;
   }
-  /** Thước dung lượng: đã dùng / giới hạn; không đọc được (null) → "—" (không đoán); ≥ 80 % vàng, ≥ 95 % đỏ, luôn kèm %. */
+  /** Thước dung lượng: đã dùng / giới hạn; không đọc được (null) → "—" (không đoán); vàng / đỏ theo ngưỡng của trang Sức chứa (QT-8), luôn kèm %. */
   function thuoc(nhan, dung, gioiHan, hien) {
     const biet = dung != null && n0(gioiHan) > 0;
     const p = biet ? Math.min(100, (n0(dung) / n0(gioiHan)) * 100) : null;
-    const m = p == null ? 'line2' : p >= 95 ? 'danger' : p >= 80 ? 'warn' : 'ok';
-    const nhanM = p == null ? '' : p >= 95 ? t('gần đầy') : p >= 80 ? t('cần để ý') : t('còn nhiều');
+    const ng = nguongSc();
+    const m = p == null ? 'line2' : p >= ng.do ? 'danger' : p >= ng.vang ? 'warn' : 'ok';
+    const nhanM = p == null ? '' : p >= ng.do ? t('gần đầy') : p >= ng.vang ? t('cần để ý') : t('còn nhiều');
     return `<div class="tq-thuoc tq-thuoc-vong">${vongPt(p, { mau: `var(--${m})`, co: 104, day: 11, nhan })}
       <div><div class="tq-tl"><span>${esc(nhan)}</span></div><div class="tq-tp">${biet ? hien : t('không đọc được')}</div>${nhanM ? `<span class="tag ${m === 'ok' ? 'ok' : m === 'warn' ? 'warn' : 'danger'}">${esc(nhanM)}</span>` : ''}</div></div>`;
   }
@@ -1801,12 +1813,14 @@
     if (dt) {
       const tb2 = dt.thue_bao || {};
       if (n0(tb2.loi_thanh_toan) > 0) them('xau', 5, `${t('Thuê bao đang lỗi thanh toán')}: ${so(tb2.loi_thanh_toan)}. ${t('Có thể mất nếu không gia hạn được.')}`, 'solieu/doanhthu');
-      const a = n0(dt.tong.gop), b = n0((dt.truoc || {}).gop), ga = n0(dt.tong.giao_dich), gb = n0((dt.truoc || {}).giao_dich);
+      const a = n0(dt.tong.gop), b = n0((dt.truoc || {}).gop);
+      // 22/11 (mục 48, QT-2): kỳ trước không có giao_dich (gb luôn 0, câu này không bao giờ hiện) — hai kỳ đếm cùng một cách: mua mới + gia hạn
+      const ga = n0(dt.tong.mua_moi) + n0(dt.tong.gia_han), gb = n0((dt.truoc || {}).mua_moi) + n0((dt.truoc || {}).gia_han);
       if (b > 0 && ga >= 20 && gb >= 20 && Math.abs(a - b) / b >= 0.2 && demKhac(ga, gb)) them(a > b ? 'tot' : 'xau', a > b ? 4 : 7, `${t('Doanh thu gộp')} ${a > b ? t('tăng') : t('giảm')} ${so(Math.round(Math.abs(pct1(a - b, b))))}% ${t('so với kỳ trước')} (${t('kỳ này gồm cả hôm nay chưa hết ngày')}).`, 'solieu/doanhthu');
       if (n0(tb2.sap_het_7d) > 0 && n0(tb2.dang_tra) > 0 && n0(tb2.sap_het_7d) / n0(tb2.dang_tra) >= 0.1) them('tt', 3, `${t('Thuê bao sẽ hết hạn trong 7 ngày tới')}: ${so(tb2.sap_het_7d)} (${so(pct1(n0(tb2.sap_het_7d), n0(tb2.dang_tra)))}% ${t('thuê bao đang còn hạn')}).`, 'solieu/doanhthu');
     }
     for (const [ten, a, b] of [[t('Cơ sở dữ liệu'), sc.db_bytes, sc.db_gioi_han], [t('Kho ảnh và video'), kho, sc.kho_gioi_han], [t('Dịch tháng này (DeepL miễn phí)'), sys.dich && sys.dich.ky_tu_thang, sys.dich && sys.dich.han_muc_deepl_free]]) {
-      if (a != null && n0(b) && n0(a) / n0(b) >= 0.8) them('xau', 6, `${ten} ${t('đã dùng')} ${so(Math.round((n0(a) / n0(b)) * 100))}% ${t('hạn mức. Cần nâng gói hoặc dọn bớt.')}`, 'hethong/vanhanh');
+      if (a != null && n0(b) && n0(a) / n0(b) >= nguongSc().vang / 100) them('xau', 6, `${ten} ${t('đã dùng')} ${so(Math.round((n0(a) / n0(b)) * 100))}% ${t('hạn mức. Cần nâng gói hoặc dọn bớt.')}`, 'hethong/vanhanh');
     }
     const thuTu = { xau: 0, tot: 1, tt: 2 };
     return kq.sort((p, q) => thuTu[p.m] - thuTu[q.m] || q.diem - p.diem).slice(0, 8);
