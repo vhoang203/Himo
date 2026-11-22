@@ -3024,15 +3024,15 @@
       if (cap) cap.onclick = async () => {
         const loai = m.querySelector('#pLoai').value, ngay = Number(m.querySelector('#pNgay').value);
         if (!(ngay >= 1 && ngay <= 366)) { toast(t('Số ngày phải từ 1 tới 366.'), true); return; }
-        // 22/11 (mục 48, PLUS-7): ngày cấp tính TỪ HÔM NAY. Người đang có Plus tới sau ngày đó (đang trả tiền) thì không được cộng thêm ngày nào — nói rõ.
+        // 22/11 (mục 48, PLUS-7, chủ dự án chọn "a"): ngày cấp NỐI sau hạn hiện tại (gói 229). Người đang có hơn 366 ngày thì lần cấp này không thêm được (trần 366 ngày / lần) — nói rõ.
         const truocMs = d.plus_until ? new Date(d.plus_until).getTime() : 0;
         const conPlus = truocMs > Date.now();
-        const ld = await hoiLyDoViec(`${t('Cấp Plus')} ${ngay} ${t('ngày')}: ${u.display_name || ''}`, `${t('Người này có HIMO Plus tới hết thời hạn cấp. Việc cấp được ghi vào nhật ký kèm tên bạn.')}${conPlus ? ` ${t('Người này đang có Plus tới')} ${ngay172(d.plus_until)}. ${t('Ngày cấp tính từ hôm nay, không cộng nối vào sau ngày đó.')}` : ''}`, t('Cấp Plus'));
+        const ld = await hoiLyDoViec(`${t('Cấp Plus')} ${ngay} ${t('ngày')}: ${u.display_name || ''}`, `${t('Người này có HIMO Plus tới hết thời hạn cấp. Việc cấp được ghi vào nhật ký kèm tên bạn.')}${conPlus ? ` ${t('Người này đang có Plus tới')} ${ngay172(d.plus_until)}. ${t('Ngày cấp sẽ nối thêm sau ngày đó.')}` : ''}`, t('Cấp Plus'));
         if (!ld) return;
         const kq = await goiNhayCam('admin_plus_cap', { p_user: u.id, p_loai: loai, p_ngay: ngay, p_ly_do: ld }, chiOwner);
         if (kq) {
           const sauMs = kq.plus_until ? new Date(kq.plus_until).getTime() : 0;
-          if (conPlus && sauMs <= truocMs + 60_000) toast(`${t('Plus vẫn tới')} ${fmtDate(kq.plus_until)}. ${t('Người này đang có Plus dài hơn số ngày vừa cấp nên không được cộng thêm ngày.')}`);
+          if (conPlus && sauMs <= truocMs + 60_000) toast(`${t('Plus vẫn tới')} ${fmtDate(kq.plus_until)}. ${t('Người này đã có Plus hơn 366 ngày nên lần cấp này không thêm được ngày.')}`);
           else toast(`${t('Đã cấp Plus tới')} ${fmtDate(kq.plus_until)}`);
         }
       };
