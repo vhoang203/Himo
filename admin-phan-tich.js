@@ -1107,7 +1107,7 @@
     const tg = o.tong || {}, tb = o.thue_bao || {};
     const dong = [[t('Doanh thu HIMO Plus'), o.luc || ''], [t('Kỳ'), `${o.tu_ngay} → ${o.den_ngay}`, o.tz], [t('Môi trường'), o.moi_truong], [],
       [t('Doanh thu gộp (USD)'), tg.gop], [t('Hoàn tiền (USD)'), tg.hoan], [t('Doanh thu ròng (USD)'), tg.rong], [t('Thực nhận ước tính (USD)'), tg.thuc_nhan],
-      [t('Mua mới'), tg.mua_moi], [t('Gia hạn'), tg.gia_han], [t('Hoàn tiền'), tg.hoan_tien], [t('Người đang trả tiền'), tb.dang_tra], [t('MRR ước tính (USD)'), (o.mrr || {}).usd], [],
+      [t('Mua mới'), tg.mua_moi], [t('Gia hạn'), tg.gia_han], [t('Hoàn tiền'), tg.hoan_tien], [t('Người đang trả tiền'), Math.max(0, (Number(tb.dang_tra) || 0) - (Number(tb.dung_thu) || 0))], [t('MRR ước tính (USD)'), (o.mrr || {}).usd], [],
       [t('Ngày'), t('Doanh thu gộp (USD)'), t('Hoàn tiền (USD)'), t('Mua mới'), t('Gia hạn'), t('Hoàn tiền')]];
     (o.chuoi || []).forEach((c) => dong.push([c.ngay, c.gop, c.hoan, c.mua_moi, c.gia_han, c.hoan_tien]));
     dong.push([], [t('Theo gói'), t('Số giao dịch'), 'USD']);
@@ -1149,8 +1149,9 @@
     } else {
       const tg = o.tong || {}, tr = o.truoc || {}, tb = o.thue_bao || {}, mrr = o.mrr || {}, soGhi = o.so || {};
       // 22/11 (mục 48, QT-3): "Người đang trả tiền" không gồm người đang dùng thử (như Tổng quan, luật f); mũi tên so kỳ bỏ vì kỳ này có hôm nay chưa hết ngày (luật e)
-      const traThat = Math.max(0, n(tb.dang_tra) - n(tb.dung_thu));
+      // 28/11 (R-PQ-1): n phải khai trước khi dùng, dùng trước thì ReferenceError và cả thẻ Doanh thu vỡ
       const n = (v) => Number(v) || 0;
+      const traThat = Math.max(0, n(tb.dang_tra) - n(tb.dung_thu));
       const chuoi = o.chuoi || [];
       const kieu = dt.kieu === 'gd' ? 'gd' : 'tien';
       const canhBao = `${laThu ? `<div class="alertbar warn"><div><b>${t('Đang xem giao dịch THỬ (sandbox)')}</b><br>${t('Không phải tiền thật. Đổi "Môi trường" về "Giao dịch thật" để xem doanh thu.')}</div></div>` : ''}
